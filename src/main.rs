@@ -9,7 +9,7 @@ const AUDIO_DRIVER: &str = "avfoundation";
 #[cfg(target_os = "linux")]
 const AUDIO_DRIVER: &str = "alsa";
 
-const MAC_AUDIO_DRIVER: &str = "BlackHole 2ch";
+const DEFAULT_INPUT: &str = "BlackHole 2ch";
 
 #[derive(Parser)]
 #[command(name = "Tau")]
@@ -106,7 +106,7 @@ fn get_blackhole_index() -> Option<String> {
   // and parse the index of driver available to FFmpeg.
   let stderr = std::str::from_utf8(&output.stderr).ok()?;
   for line in stderr.lines() {
-    if line.contains(MAC_AUDIO_DRIVER) {
+    if line.contains(DEFAULT_INPUT) {
       if let Some(index) = line
         .split(['[', ']'])
         .filter(|s| !s.is_empty())
@@ -123,7 +123,7 @@ fn get_blackhole_index() -> Option<String> {
 /// Find out if `Blackhole 2ch` is available on macOS system,
 fn get_input_index() -> String {
   get_blackhole_index().unwrap_or_else(|| {
-    eprintln!("\n{color_red}Error:{color_reset} {MAC_AUDIO_DRIVER} driver not found.\n\
+    eprintln!("\n{color_red}Error:{color_reset} {DEFAULT_INPUT} driver not found.\n\
       \nInstall with:\n {color_bright_cyan}$ brew install --cask blackhole-2ch{color_reset}\n\
       or:\n{color_bright_cyan} $ port install BlackHole{color_reset}\n");
     exit(1);
@@ -148,8 +148,10 @@ fn parse_drivers() {
   // and parse the index of driver available to FFmpeg.
   let stderr = std::str::from_utf8(&output.stderr).ok().unwrap();
   for line in stderr.lines() {
-    if line.contains(MAC_AUDIO_DRIVER) {
-      line .split(['[', ']']).nth(3).map(|l| print!("\t{}", l));
+    if line.contains(DEFAULT_INPUT) {
+      if let Some(l) = line .split(['[', ']']).nth(3) { 
+        print!("\t{}", l)
+      };
     }
   }
 }
@@ -169,7 +171,7 @@ mod tests {
     let stderr = std::str::from_utf8(&output.stderr).ok().unwrap();
     let mut found = false;
     for line in stderr.lines() {
-      if line.contains(MAC_AUDIO_DRIVER) {
+      if line.contains(DEFAULT_INPUT) {
         found = true;
       }
     }
