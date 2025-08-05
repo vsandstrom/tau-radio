@@ -17,24 +17,23 @@ const MAC_AUDIO_DRIVER: &str = "BlackHole 2ch";
 #[command(about = "Streams to an IceCast server using FFmpeg")]
 struct Args {
   /// IceCast server username
-  #[arg(short, long, default_value = "mark_fisher")]
+  #[arg( long, default_value = "mark_fisher")]
   username: String,
 
   /// IceCast server password
-  #[arg(short, long, default_value = "is there no alternative")]
+  #[arg(long, default_value = "is there no alternative")]
   password: String,
 
   /// IceCast server URL
-  #[arg(short, long, default_value = "127.0.0.1")]
+  #[arg(long, default_value = "127.0.0.1")]
   url: String,
 
   /// IceCast server port
-  #[arg(short, long, default_value = "8000")]
+  #[arg(long, default_value = "8000")]
   port: u16,
 
-
   /// Optional custom filename of local copy
-  #[arg(short, long)]
+  #[arg(long)]
   file: Option<String>
 }
 
@@ -60,12 +59,12 @@ fn main() {
     "-map", "0:a",                              // extract the audio from the first input stream
     "-c:a", "libopus",                          // encode the audio through 'libopus
     "-b:a", "128k",                             // set bitrate of audiostream
-    "-content_type", "audio/opus",              // set HTTP content type tags
+    // "-content_type", "audio/opus",              // set HTTP content type tags
     "-f", "tee",                                // split audio into:
-    &format!("{}|{}", address, filename)        // icecast stream and local file
+    &format!("'[f=ogg]{}|[f=ogg]{}'", address, filename)        // icecast stream and local file
   ];
 
-  println!("{}", ffmpeg_args.clone().join(" "));
+  // println!("{}", ffmpeg_args.clone().join(" "));
 
   let ffmpeg = Command::new("ffmpeg")
     .args(ffmpeg_args)
