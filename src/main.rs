@@ -1,15 +1,18 @@
+mod err;
+
 use clap::Parser;
 use chrono::Utc;
 use std::process::{exit, Command};
-use inline_colorization::*;
 
 #[cfg(target_os = "macos")]
 const AUDIO_DRIVER: &str = "avfoundation";
-
+#[cfg(target_os = "macos")]
+const DEFAULT_INPUT: &str = "BlackHole 2ch";
 #[cfg(target_os = "linux")]
 const AUDIO_DRIVER: &str = "alsa";
+#[cfg(target_os = "linux")]
+const DEFAULT_INPUT: &str = "0";
 
-const DEFAULT_INPUT: &str = "BlackHole 2ch";
 
 #[derive(Parser)]
 #[command(name = "Tau")]
@@ -76,25 +79,10 @@ fn main() {
      eprintln!("FFmpeg exited with status: {}", ffmpeg);
      exit(1) 
   }
-
-  //// spawn asciinema
-  // let mut ffmpeg = Command::new("ffmpeg")
-  // .args(ffmpeg_args)
-  // .stdout(Stdio::null())
-  // .stderr(Stdio::null())
-  // .spawn()
-  // .expect("FFmpeg failed on startup.");
-
-  // let asciinema = Command::new("asciinema")
-  //   .args(["rec"])
-  //   .status()
-  //   .expect("Asciinema failed on startup.");
-  //
-  // if asciinema.success() {
-  //   let _ = ffmpeg.kill();
-  //   }
 }
 
+  
+#[cfg(target_os = "macos")]
 fn get_blackhole_index() -> Option<String> {
   // Run ffmpeg to find the driver index on your system
   let output = Command::new("ffmpeg")
@@ -122,10 +110,10 @@ fn get_blackhole_index() -> Option<String> {
 #[cfg(target_os = "macos")]
 /// Find out if `Blackhole 2ch` is available on macOS system,
 fn get_input_index() -> String {
+    use self::err::BLACKHOLE_NOT_FOUND;
+
   get_blackhole_index().unwrap_or_else(|| {
-    eprintln!("\n{color_red}Error:{color_reset} {DEFAULT_INPUT} driver not found.\n\
-      \nInstall with:\n {color_bright_cyan}$ brew install --cask blackhole-2ch{color_reset}\n\
-      or:\n{color_bright_cyan} $ port install BlackHole{color_reset}\n");
+    eprintln!("{}", BLACKHOLE_NOT_FOUND);
     exit(1);
   })
 }
@@ -133,9 +121,10 @@ fn get_input_index() -> String {
 #[cfg(target_os = "linux")]
 /// Choose default ALSA input source
 fn get_input_index() -> String {
-  "0".to_string()
+  DEFAULT_INPUT.to_string()
 }
 
+#[cfg(target_os = "macos")]
 #[allow(unused)]
 fn parse_drivers() {
   // Run ffmpeg to find the driver index on your system
