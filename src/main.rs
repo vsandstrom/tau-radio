@@ -1,8 +1,10 @@
+mod config;
 mod err;
 
 use clap::Parser;
 use chrono::Utc;
 use std::process::{exit, Command};
+use config::load_or_create_config;
 
 #[cfg(target_os = "macos")]
 const AUDIO_DRIVER: &str = "avfoundation";
@@ -43,17 +45,18 @@ struct Args {
 
 fn main() {
   // parse_drivers();
-  let args = Args::parse();
+  // let args = Args::parse();
+  let config = load_or_create_config();
 
   // formats the current datetime to a string, used in session file naming
   // if no filename is given in cli arguments. default = `tau_[datetime].ogg`
   let now = Utc::now().format("%d-%m-%Y_%H:%M:%S").to_string();
-  let filename = args.file.map(|f| format!("{f}.ogg")).unwrap_or_else(|| format!("tau_{}.ogg", now));
+  let filename = config.file.map(|f| format!("{f}.ogg")).unwrap_or_else(|| format!("tau_{}.ogg", now));
 
   // formats the URL to the receiving IceCast server
   let address = format!(
     "icecast://{}:{}@{}:{}/tau.ogg",
-    args.username, args.password, args.url, args.port
+    config.username, config.password, config.url, config.port
   );
 
   // Build the arguments for FFmpeg process
