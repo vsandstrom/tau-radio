@@ -3,7 +3,7 @@ mod err;
 
 use clap::Parser;
 use chrono::Utc;
-use std::process::{exit, Command};
+use std::process::{exit, Command, Stdio};
 use config::load_or_create_config;
 
 #[cfg(target_os = "macos")]
@@ -22,24 +22,24 @@ const DEFAULT_INPUT: &str = "0";
 #[command(about = "Streams to an IceCast server using FFmpeg")]
 struct Args {
   /// IceCast server username
-  #[arg(short, long, default_value = "mark_fisher")]
+  #[arg(long, default_value = "mark_fisher")]
   username: String,
 
   /// IceCast server password
-  #[arg(short, long, default_value = "is there no alternative")]
+  #[arg(long, default_value = "is there no alternative")]
   password: String,
 
   /// IceCast server URL
-  #[arg(short, long, default_value = "127.0.0.1")]
+  #[arg(long, default_value = "127.0.0.1")]
   url: String,
 
   /// IceCast server port
-  #[arg(short, long, default_value = "8000")]
+  #[arg(long, default_value = "8000")]
   port: u16,
 
 
   /// Optional custom filename of local copy
-  #[arg(short, long)]
+  #[arg(long)]
   file: Option<String>
 }
 
@@ -59,29 +59,38 @@ fn main() {
     config.username, config.password, config.url, config.port
   );
 
-  // Build the arguments for FFmpeg process
-  let ffmpeg_args = [
-    "-f", AUDIO_DRIVER,                         // select OS specific audio backend
-    "-i", &format!(":{}", get_input_index()),   // select index of audio driver
-    "-map", "0:a",                              // extract the audio from the first input stream
-    "-c:a", "libopus",                          // encode the audio through 'libopus
-    "-b:a", "128k",                             // set bitrate of audiostream
-    "-content_type", "audio/opus",              // set HTTP content type tags
-    "-f", "tee",                                // split audio into:
-    &format!("{}|{}", address, filename)        // icecast stream and local file
+  let sox_args = [
+    "-t", "coreaudio", DEFAULT_INPUT,
+    "-t", "wav", "-"
   ];
 
-  println!("{}", ffmpeg_args.clone().join(" "));
+  let ffmpeg_args = [
+    "-i", "pipe:0",
+    "-c:a", "libopus",
+    "-b:a", "128k",
+    "-f", "ogg",
+    "-content_type", "application/ogg",
+    &address
+  ];
+
+  let mut sox = Command::new("sox")
+    .args(sox_args).stdout(Stdio::piped())
+    .spawn().expect("could not spawn 'sox' process");
 
   let ffmpeg = Command::new("ffmpeg")
     .args(ffmpeg_args)
+    .stdin(Stdio::from(sox.stdout.take().unwrap()))
     .status()
     .expect("FFmpeg failed on startup.");
 
   if !ffmpeg.success() {
      eprintln!("FFmpeg exited with status: {}", ffmpeg);
      exit(1) 
+  } else {
+    let _ = sox.kill();
   }
+
+  let _ = sox.wait();
 }
 
   
