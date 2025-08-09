@@ -1,4 +1,5 @@
-use inline_colorization::*;
+#[allow(unused)]
+use inline_colorization::{color_red, color_bright_cyan, color_reset};
 
 #[cfg(target_os="macos")]
 pub const DEFAULT_NOT_FOUND: &str = 

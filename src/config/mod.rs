@@ -1,6 +1,5 @@
 use serde::{Serialize, Deserialize};
 use std::path::PathBuf;
-use clap::Parser;
 use std::fs;
 use dialoguer::{Input, Password};
 

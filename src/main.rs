@@ -19,6 +19,8 @@ use cpal::InputCallbackInfo;
 use opusenc::{Comments, Encoder, RecommendedTag};
 use ringbuf::traits::{Consumer, Producer, Split};
 use std::sync::Arc;
+#[allow(unused)]
+use inline_colorization::*;
 
 #[cfg(target_os = "macos")]
 const DEFAULT_INPUT: &str = "BlackHole 2ch";
@@ -63,7 +65,7 @@ fn main() {
   let _stream_thread = if config.no_recording {
     std::thread::spawn(move || {
       let mut encoder = Encoder::create_pull(
-        Comments::create().add(RecommendedTag::Title, inner_filename.clone().to_string()).unwrap(),
+        Comments::create().add(RecommendedTag::Title, inner_filename.to_string()).unwrap(),
         sr as i32,
         ch as usize,
         opusenc::MappingFamily::MonoStereo).unwrap_or_else(|err| {
@@ -141,10 +143,13 @@ fn main() {
   let stream  = device.build_input_stream(&audio_config.config(), input_cb, err_cb, None).expect("could not build audio capture");
   let _ = stream.play();
 
-  println!("Recording from: {}", device.name().unwrap_or("Unknown device".into()));
-  println!("Streaming live to: http://{}:{}/tau.ogg", config.url, config.port);
-  if !config.no_recording { println!("Saving local copy to: {}", filename); } 
-  else { println!("Local recording is disabled."); }
+  println!("\n{style_bold}{color_bright_yellow}Recording from: \t{style_reset}{color_bright_cyan}{}{color_reset}", device.name().unwrap_or("Unknown device".into()));
+  println!("{style_bold}{color_bright_yellow}Streaming live to: \t{color_bright_cyan}http://{}:{}/tau.ogg{color_reset}", config.url, config.port);
+  if !config.no_recording { 
+    println!("{style_bold}{color_bright_yellow}Saving local copy to: \t{style_reset}{color_bright_cyan}{}{color_reset}", filename); 
+  } else { 
+    println!("{color_red}{style_bold}Local recording is disabled.{style_reset}{color_reset}"); 
+  }
   println!("Press Ctrl+C to stop.");
 
   loop { std::thread::sleep(std::time::Duration::from_secs(1)); }
