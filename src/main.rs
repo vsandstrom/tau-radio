@@ -8,6 +8,8 @@ use crate::config::load_or_create_config;
 use crate::config::merge_cli_args;
 use crate::util::format_filename;
 use crate::args::Args;
+use crate::err::{AUDIO_INTERFACE_NOT_FOUND, DEFAULT_NOT_FOUND};
+use crate::icecast::create_icecast_connection;
 
 use chrono::Local;
 use clap::Parser;
@@ -17,8 +19,6 @@ use cpal::InputCallbackInfo;
 use opusenc::{Comments, Encoder, RecommendedTag};
 use ringbuf::traits::{Consumer, Producer, Split};
 use std::sync::Arc;
-use crate::err::{AUDIO_INTERFACE_NOT_FOUND, DEFAULT_NOT_FOUND};
-use self::icecast::create_icecast_connection;
 
 #[cfg(target_os = "macos")]
 const DEFAULT_INPUT: &str = "BlackHole 2ch";
@@ -146,5 +146,6 @@ fn main() {
   if !config.no_recording { println!("Saving local copy to: {}", filename); } 
   else { println!("Local recording is disabled."); }
   println!("Press Ctrl+C to stop.");
+
   loop { std::thread::sleep(std::time::Duration::from_secs(1)); }
 }
