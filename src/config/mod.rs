@@ -1,17 +1,19 @@
 use serde::{Serialize, Deserialize};
 use std::path::PathBuf;
-use std::process::exit;
+use clap::Parser;
 use std::fs;
 use dialoguer::{Input, Password};
 
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
   pub username: String,
   pub password: String,
   pub url: String,
   pub port: u16,
+  pub audio_interface: String,
   pub file: Option<String>,
+  pub no_recording: bool
 }
 
 fn get_config_path() -> PathBuf {
@@ -26,10 +28,10 @@ fn get_config_path() -> PathBuf {
   PathBuf::from("config.toml")
 }
 
-pub fn load_or_create_config() -> Config {
+pub fn load_or_create_config(reset: bool) -> Config {
   let path = get_config_path();
 
-  if path.exists() {
+  if path.exists() && !reset {
     let settings = fs::read_to_string(&path).expect("could not read config file");
     toml::from_str(&settings).expect("Invalid config format")
   } else {
@@ -56,10 +58,23 @@ pub fn load_or_create_config() -> Config {
       .interact_text()
       .unwrap();
 
+    let audio_interface = Input::new()
+      .with_prompt("Audio Interface")
+      .default(crate::DEFAULT_INPUT.to_string())
+      .interact_text()
+      .unwrap();
+
+
     let file: String = Input::new()
       .with_prompt("Filename (leave empty for 'tau_[timestamp].ogg')")
       .allow_empty(true)
       .interact()
+      .unwrap();
+
+    let no_recording = Input::new()
+      .with_prompt("Disable local recording (Disables filename)")
+      .default(false)
+      .interact_text()
       .unwrap();
 
     let config = Config {
@@ -67,7 +82,9 @@ pub fn load_or_create_config() -> Config {
       password,
       url,
       port,
-      file: if file.trim().is_empty() {None} else { Some(file) }
+      audio_interface,
+      file: if file.trim().is_empty() {None} else { Some(file) },
+      no_recording
     };
 
     if let Some(parent) = path.parent() {
@@ -78,4 +95,15 @@ pub fn load_or_create_config() -> Config {
 
     config
   }
+}
+
+/// Merges local config.toml with current CLI arguments if there are any.
+pub fn merge_cli_args(config: &mut Config, args: crate::args::Args) {
+  if let Some(username) = args.username { config.username = username; }
+  if let Some(password) = args.password { config.password = password; }
+  if let Some(url) = args.url { config.url = url; }
+  if let Some(port) = args.port { config.port = port; }
+  if let Some(file) = args.file { config.file = Some(file); }
+  config.no_recording = args.no_recording
+  
 }
