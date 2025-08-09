@@ -5,6 +5,13 @@ use clap::Parser;
 use chrono::Utc;
 use std::process::{exit, Command, Stdio};
 use config::load_or_create_config;
+use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+use cpal::InputCallbackInfo;
+use opusenc::{Comments, Encoder, RecommendedTag};
+use std::path::Path;
+use std::sync::{Arc, Mutex};
+use ringbuf::traits::{Consumer, Producer, Split};
+use shout::{ShoutConnBuilder, ShoutMetadata};
 
 #[cfg(target_os = "macos")]
 const AUDIO_DRIVER: &str = "avfoundation";
@@ -49,7 +56,7 @@ fn main() {
 
   // formats the current datetime to a string, used in session file naming
   // if no filename is given in cli arguments. default = `tau_[datetime].ogg`
-  let now = Utc::now().format("%d-%m-%Y_%H:%M:%S").to_string();
+  let now = Utc::now().format("%d-%m-%Y_%H_%M_%S").to_string();
   let filename = config.file.map(|f| format!("{f}.ogg")).unwrap_or_else(|| format!("tau_{}.ogg", now));
 
   // formats the URL to the receiving IceCast server
@@ -58,38 +65,110 @@ fn main() {
     config.username, config.password, config.url, config.port
   );
 
-  let sox_args = [
-    "-t", "coreaudio", DEFAULT_INPUT,
-    "-t", "wav", "-"
-  ];
+  let host = cpal::default_host();
+      
+  if let Some(bh) = host.input_devices().unwrap().find(|dev| dev.name().unwrap() == "BlackHole 2ch") {
+    let audio_config  = bh.default_input_config().unwrap();
+    let sr = audio_config.config().sample_rate.0;
+    assert!(sr == 48000, "Samplerate is not compatible with ogg opus (48kHz)");
+    let ch = audio_config.config().channels;
 
-  let ffmpeg_args = [
-    "-i", "pipe:0",
-    "-c:a", "libopus",
-    "-b:a", "128k",
-    "-f", "ogg",
-    "-content_type", "application/ogg",
-    &address
-  ];
+    let (mut tx, mut rx) = ringbuf::HeapRb::<f32>::new(sr as usize * 4).split();
 
-  let mut sox = Command::new("sox")
-    .args(sox_args).stdout(Stdio::piped())
-    .spawn().expect("could not spawn 'sox' process");
 
-  let ffmpeg = Command::new("ffmpeg")
-    .args(ffmpeg_args)
-    .stdin(Stdio::from(sox.stdout.take().unwrap()))
-    .status()
-    .expect("FFmpeg failed on startup.");
+    let mut icecast = ShoutConnBuilder::new()
+      .host(config.url)
+      .port(config.port)
+      .user(config.username)
+      .password(config.password)
+      .mount("/tau.ogg".into())
+      .protocol(shout::ShoutProtocol::HTTP)
+      .format(shout::ShoutFormat::Ogg)
+      .build().unwrap();
 
-  if !ffmpeg.success() {
-     eprintln!("FFmpeg exited with status: {}", ffmpeg);
-     exit(1) 
-  } else {
-    let _ = sox.kill();
-  }
+    let opus_thread = std::thread::spawn(move || {
+      let mut local_encoder = Encoder::create_file(
+        filename.clone(),
+        Comments::create().add(RecommendedTag::Title, filename.clone()).unwrap(),
+        sr as i32,
+        ch as usize,
+        opusenc::MappingFamily::MonoStereo).expect("could not create file");
 
-  let _ = sox.wait();
+      let mut stream_encoder = Encoder::create_pull(
+        Comments::create().add(RecommendedTag::Title, filename).unwrap(),
+        sr as i32,
+        ch as usize,
+        opusenc::MappingFamily::MonoStereo).expect("could not create file");
+    
+      let framesize = 960 * ch as usize;
+      let mut opus_frame_buffer = Vec::with_capacity(framesize);
+      loop {
+        if let Some(sample) = rx.try_pop() {
+          opus_frame_buffer.push(sample);
+        } else {
+          std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+        if opus_frame_buffer.len() == framesize {
+          local_encoder.write_float(&opus_frame_buffer).expect("block not a multiple of input channels");
+          stream_encoder.write_float(&opus_frame_buffer).expect("block not a multiple of input channels");
+          if let Some(page) = stream_encoder.get_page(true) {
+            icecast.send(page).unwrap();
+            icecast.sync();
+          }
+          opus_frame_buffer.clear();
+        }
+      }
+    });
+
+    println!("{}", bh.name().unwrap());
+      //.build_input_stream(&config.config(), |_b, _c|{}, |_e, _f|{}, 0))
+    let input_cb= move |buf: &[f32], _info: &InputCallbackInfo| {
+      tx.push_slice(buf);
+    };
+
+    let err_cb = |err| {eprintln!("{err}")};
+    let stream  = bh.build_input_stream(&audio_config.config(), input_cb, err_cb, None).expect("could not build audio capture");
+
+    stream.play();
+
+    println!("Recording... Press Ctrl+C to stop.");
+    loop {
+        std::thread::sleep(std::time::Duration::from_secs(1));
+    }
+  } 
+
+  // let sox_args = [
+  //   "-t", "coreaudio", DEFAULT_INPUT,
+  //   "-t", "wav", "-"
+  // ];
+  //
+  // let ffmpeg_args = [
+  //   "-i", "pipe:0",
+  //   "-c:a", "libopus",
+  //   "-b:a", "128k",
+  //   "-f", "ogg",
+  //   "-content_type", "application/ogg",
+  //   &address
+  // ];
+  //
+  // let mut sox = Command::new("sox")
+  //   .args(sox_args).stdout(Stdio::piped())
+  //   .spawn().expect("could not spawn 'sox' process");
+  //
+  // let ffmpeg = Command::new("ffmpeg")
+  //   .args(ffmpeg_args)
+  //   .stdin(Stdio::from(sox.stdout.take().unwrap()))
+  //   .status()
+  //   .expect("FFmpeg failed on startup.");
+  //
+  // if !ffmpeg.success() {
+  //    eprintln!("FFmpeg exited with status: {}", ffmpeg);
+  //    exit(1) 
+  // } else {
+  //   let _ = sox.kill();
+  // }
+  //
+  // let _ = sox.wait();
 }
 
   
