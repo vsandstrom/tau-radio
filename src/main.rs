@@ -4,8 +4,7 @@ mod err;
 mod util;
 mod icecast;
 
-use crate::config::load_or_create_config;
-use crate::config::merge_cli_args;
+use crate::config::Config;
 use crate::util::format_filename;
 use crate::args::Args;
 use crate::err::{AUDIO_INTERFACE_NOT_FOUND, DEFAULT_NOT_FOUND};
@@ -27,8 +26,8 @@ const DEFAULT_INPUT: &str = "BlackHole 2ch";
 
 fn main() {
   let args = Args::parse();
-  let mut config = load_or_create_config(args.reset_config);
-  merge_cli_args(&mut config, args);
+  let config = Config::load_or_create(args.reset_config).merge_cli_args(args);
+  // merge_cli_args(&mut config, args);
   let filename = format_filename(config.file.clone());
   let host = cpal::default_host();
 
