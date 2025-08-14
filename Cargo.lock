@@ -1032,8 +1032,7 @@ checksum = "a4895175b425cb1f87721b59f0f286c2092bd4af812243672510e1ac53e2e0ad"
 [[package]]
 name = "opusenc"
 version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "99182bc484d93a95aaee3f5d99f7ca308101268c394c0f31451586a075de011f"
+source = "git+https://github.com/vsandstrom/opusenc-rs?branch=homebrew_fix#a34856a6f6e9887d606b43d67aeb09e76995d46f"
 dependencies = [
  "cstr",
  "num_enum",
@@ -1043,8 +1042,7 @@ dependencies = [
 [[package]]
 name = "opusenc-sys"
 version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cba1f8ff07872f1234c94b2f46c101621e635a47efd962c3656395828dbcb9b7"
+source = "git+https://github.com/vsandstrom/opusenc-rs?branch=homebrew_fix#a34856a6f6e9887d606b43d67aeb09e76995d46f"
 dependencies = [
  "bindgen",
 ]

@@ -11,7 +11,7 @@ cpal = { version = "0.16.0", features = ["asio", "jack", "wasm-bindgen"] }
 dialoguer = "0.11.0"
 inline_colorization = "0.1.6"
 is-ip = "0.1.0"
-opusenc = "0.2.2"
+opusenc = {git = "https://github.com/vsandstrom/opusenc-rs", branch = "homebrew_fix"}
 regex = "1.11.1"
 ringbuf = "0.4.8"
 serde = { version = "1.0.219", features = ["derive"] }
