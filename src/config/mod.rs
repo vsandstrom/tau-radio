@@ -66,7 +66,7 @@ impl Config {
         .with_prompt("Icecast URL")
         .default("127.0.0.1".into())
         .interact_text().inspect(|a: &String| {
-          if is_ip(a) {
+          if !is_ip(a) {
             eprintln!("IP is not valid");
             exit(1);
           }
