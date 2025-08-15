@@ -39,7 +39,7 @@ impl Config {
     if let Some(url) = args.url { self.url = url; }
     if let Some(port) = args.port { self.port = port; }
     if let Some(file) = args.file { self.file = Some(file); }
-    self.no_recording = args.no_recording;
+    if let Some(no_rec) = args.no_recording { self.no_recording = no_rec };
     self
   }
 
@@ -66,7 +66,7 @@ impl Config {
         .with_prompt("Icecast URL")
         .default("127.0.0.1".into())
         .interact_text().inspect(|a: &String| {
-          if is_ip(a) {
+          if !is_ip(a) {
             eprintln!("IP is not valid");
             exit(1);
           }
@@ -200,7 +200,7 @@ pub fn merge_cli_args(config: &mut Config, args: crate::args::Args) {
   if let Some(url) = args.url { config.url = url; }
   if let Some(port) = args.port { config.port = port; }
   if let Some(file) = args.file { config.file = Some(file); }
-  config.no_recording = args.no_recording
+  if let Some(no_rec) = args.no_recording {config.no_recording = no_rec; }
 }
 
 fn get_config_path() -> PathBuf {
