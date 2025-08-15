@@ -8,7 +8,7 @@ pub fn create_icecast_connection(config: Config) -> ShoutConn {
     .port(config.port)
     .user(config.username.clone())
     .password(config.password.clone())
-    .mount("/tau.ogg".into())
+    .mount(config.mount)
     .protocol(shout::ShoutProtocol::HTTP)
     .format(shout::ShoutFormat::Ogg)
     .build() {

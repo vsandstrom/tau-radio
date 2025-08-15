@@ -21,6 +21,9 @@ pub(crate) struct Args {
   #[arg(long, value_parser=validate_port)]
   pub port: Option<u16>,
 
+  #[arg(long)]
+  pub mount: Option<String>,
+
   /// Optional custom filename of local copy
   #[arg(long)]
   pub file: Option<String>,
