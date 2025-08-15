@@ -14,6 +14,7 @@ pub struct Config {
   pub password: String,
   pub url: String,
   pub port: u16,
+  pub mount: String,
   pub audio_interface: String,
   pub file: Option<String>,
   pub no_recording: bool
@@ -38,6 +39,7 @@ impl Config {
     if let Some(password) = args.password { self.password = password; }
     if let Some(url) = args.url { self.url = url; }
     if let Some(port) = args.port { self.port = port; }
+    if let Some(mount) = args.mount { self.mount = mount; }
     if let Some(file) = args.file { self.file = Some(file); }
     self.no_recording = args.no_recording;
     self
@@ -52,6 +54,7 @@ impl Config {
       toml::from_str(&settings).expect("Invalid config format")
     } else {
       println!("No config found at '{}'. Let's create one: ", path.display());
+      println!("Credentials must correspond to what is set in icecast.xml");
       let username: String = Input::new()
         .with_prompt("Username")
         .interact_text()
@@ -82,6 +85,12 @@ impl Config {
           }
         }).unwrap();
 
+      let mount = Input::new()
+        .with_prompt("Icecast mount point")
+        .default("tau.ogg".into())
+        .interact_text()
+        .unwrap();
+
       let audio_interface = Input::new()
         .with_prompt("Audio Interface")
         .default(crate::DEFAULT_INPUT.to_string())
@@ -106,6 +115,7 @@ impl Config {
         password,
         url,
         port,
+        mount,
         audio_interface,
         file: if file.trim().is_empty() {None} else { Some(file) },
         no_recording
@@ -121,97 +131,3 @@ impl Config {
     }
   }
 }
-
-
-
-pub fn load_or_create_config(reset: bool) -> Config {
-  let path = get_config_path();
-
-  if path.exists() && !reset {
-    let settings = fs::read_to_string(&path).expect("could not read config file");
-    toml::from_str(&settings).expect("Invalid config format")
-  } else {
-    println!("No config found at '{}'. Let's create one: ", path.display());
-    let username: String = Input::new()
-      .with_prompt("Username")
-      .interact_text()
-      .unwrap(); 
-    
-    let password: String = Password::new()
-      .with_prompt("Password")
-      .interact()
-      .unwrap(); 
-
-    let url: String = Input::new()
-      .with_prompt("Icecast URL")
-      .default("127.0.0.1".into())
-      .interact_text()
-      .unwrap();
-
-    let port: u16 = Input::new()
-      .with_prompt("Port")
-      .default(8000)
-      .interact_text()
-      .unwrap();
-
-    let audio_interface = Input::new()
-      .with_prompt("Audio Interface")
-      .default(crate::DEFAULT_INPUT.to_string())
-      .interact_text()
-      .unwrap();
-
-
-    let file: String = Input::new()
-      .with_prompt("Filename (leave empty for 'tau_[timestamp].ogg')")
-      .allow_empty(true)
-      .interact()
-      .unwrap();
-
-    let no_recording = Input::new()
-      .with_prompt("Disable local recording (Disables filename)")
-      .default(false)
-      .interact_text()
-      .unwrap();
-
-    let config = Config {
-      username,
-      password,
-      url,
-      port,
-      audio_interface,
-      file: if file.trim().is_empty() {None} else { Some(file) },
-      no_recording
-    };
-
-    if let Some(parent) = path.parent() {
-      fs::create_dir_all(parent).expect("Could not create config directory")
-    }
-    let toml_string = toml::to_string_pretty(&config).unwrap();
-    fs::write(&path, toml_string).expect("Failed to write config file");
-
-    config
-  }
-}
-
-/// Merges local config.toml with current CLI arguments if there are any.
-pub fn merge_cli_args(config: &mut Config, args: crate::args::Args) {
-  if let Some(username) = args.username { config.username = username; }
-  if let Some(password) = args.password { config.password = password; }
-  if let Some(url) = args.url { config.url = url; }
-  if let Some(port) = args.port { config.port = port; }
-  if let Some(file) = args.file { config.file = Some(file); }
-  config.no_recording = args.no_recording
-}
-
-fn get_config_path() -> PathBuf {
-  if let Ok(xdg_path) = std::env::var("XDG_CONFIG_HOME") {
-    return PathBuf::from(xdg_path).join("tau").join("config.toml");
-  }
-  
-  if let Ok(home_path) = std::env::var("HOME") {
-    return PathBuf::from(home_path).join(".config").join("tau").join("config.toml");
-  }
-
-  PathBuf::from("config.toml")
-}
-
