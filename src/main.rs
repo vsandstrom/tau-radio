@@ -1,25 +1,24 @@
-mod config;
 mod args;
+mod config;
 mod err;
-mod util;
 mod icecast;
+mod util;
 
-use crate::config::Config;
-use crate::util::format_filename;
 use crate::args::Args;
+use crate::config::Config;
 use crate::err::{AUDIO_INTERFACE_NOT_FOUND, DEFAULT_NOT_FOUND};
 use crate::icecast::create_icecast_connection;
+use crate::util::format_filename;
 
-use chrono::Local;
 use clap::Parser;
-use std::process::exit;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{Device, Host, InputCallbackInfo, SupportedStreamConfig};
-use opusenc::{Comments, Encoder, RecommendedTag};
-use ringbuf::traits::{Consumer, Producer, Split};
-use std::sync::Arc;
 #[allow(unused)]
 use inline_colorization::*;
+use opusenc::{Comments, Encoder, RecommendedTag};
+use ringbuf::traits::{Consumer, Producer, Split};
+use std::process::exit;
+
 
 #[cfg(target_os = "macos")]
 const DEFAULT_INPUT: &str = "BlackHole 2ch";

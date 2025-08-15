@@ -1,11 +1,7 @@
-use serde::{Serialize, Deserialize};
-use std::path::PathBuf;
-use std::fs;
+use std::{path::PathBuf, process::exit, fs};
 use dialoguer::{Input, Password};
-use std::process::exit;
+use serde::{Serialize, Deserialize};
 use is_ip::is_ip;
-use crate::util::validate_port;
-
 
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -22,15 +18,15 @@ pub struct Config {
 
 impl Config {
   fn get_config_path() -> PathBuf {
-    if let Ok(xdg_path) = std::env::var("XDG_CONFIG_HOME") {
-      return PathBuf::from(xdg_path).join("tau").join("config.toml");
+    let local_dir = PathBuf::new().join("tau").join("config.toml");
+    match (std::env::var("XDG_CONFIG_HOME"), std::env::var("HOME")) {
+      // XDG_HOME
+      (Ok(path), Err(_)) => PathBuf::from(path).join(local_dir),
+      // HOME
+      (Err(_), Ok(path)) => PathBuf::from(path).join(".config").join(local_dir),
+      // Fallback
+      _ => PathBuf::from("config.toml")
     }
-    
-    if let Ok(home_path) = std::env::var("HOME") {
-      return PathBuf::from(home_path).join(".config").join("tau").join("config.toml");
-    }
-
-    PathBuf::from("config.toml")
   }
 
   /// Merges local config.toml with current CLI arguments if there are any.
@@ -124,6 +120,7 @@ impl Config {
       if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).expect("Could not create config directory")
       }
+
       let toml_string = toml::to_string_pretty(&config).unwrap();
       fs::write(&path, toml_string).expect("Failed to write config file");
 
