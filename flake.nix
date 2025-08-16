@@ -26,21 +26,5 @@
 
         doCheck = false;
       };
-
-      # devShell = pkgs.mkShell {
-      #   nativeBuildInputs = [pkgs.pkg-config];
-      #   buildInputs = [
-      #     pkgs.rustup
-      #     pkgs.cargo
-      #     pkgs.libshout
-      #     pkgs.libopusenc
-      #     pkgs.libopus
-      #     pkgs.libogg
-      #   ];
-      #   shellHook = ''
-      #     rustup override set stable
-      #   '';
-      #
-      # };
     });
 }
