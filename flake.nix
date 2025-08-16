@@ -3,7 +3,7 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
-    crate.url = "github:ipetkov/crane";
+    crane.url = "github:ipetkov/crane";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
@@ -16,14 +16,6 @@
     {
       packages.default = craneLib.buildPackage {
         src = craneLib.cleanCargoSource ./.;
-        # pname = "tau-radio";
-        # version = "0.1.0"; 
-        # src = ./.;
-        # cargoVendorDir = ./vendor;
-
-        # cargoSha256 = "sha256-aaaaaaaaaaaaaaaaaaaaaaaa";
-        # cargoLock = ./Cargo.lock;
-
         nativeBuildInputs = [pkgs.pkg-config];
         buildInputs = [
           pkgs.libshout
