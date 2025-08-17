@@ -2,3 +2,4 @@
 config.toml
 *.ogg
 .DS_STORE
+result
