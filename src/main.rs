@@ -1,25 +1,24 @@
-mod config;
 mod args;
+mod config;
 mod err;
-mod util;
 mod icecast;
+mod util;
 
-use crate::config::Config;
-use crate::util::format_filename;
 use crate::args::Args;
+use crate::config::Config;
 use crate::err::{AUDIO_INTERFACE_NOT_FOUND, DEFAULT_NOT_FOUND};
 use crate::icecast::create_icecast_connection;
+use crate::util::format_filename;
 
-use chrono::Local;
 use clap::Parser;
-use std::process::exit;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::InputCallbackInfo;
-use opusenc::{Comments, Encoder, RecommendedTag};
-use ringbuf::traits::{Consumer, Producer, Split};
-use std::sync::Arc;
+use cpal::{Device, Host, InputCallbackInfo, SupportedStreamConfig};
 #[allow(unused)]
 use inline_colorization::*;
+use opusenc::{Comments, Encoder, RecommendedTag};
+use ringbuf::traits::{Consumer, Producer, Split};
+use std::process::exit;
+
 
 #[cfg(target_os = "macos")]
 const DEFAULT_INPUT: &str = "BlackHole 2ch";
@@ -30,33 +29,10 @@ fn main() {
   // merge_cli_args(&mut config, args);
   let filename = format_filename(config.file.clone());
   let host = cpal::default_host();
-
-  let device = host.input_devices()
-      .map_err(|err| {
-          eprintln!("Could not list input devices: {err}");
-          eprintln!("Make sure your audio hardware is connected and accessible.");
-          exit(1);
-      })
-      .ok()
-      .and_then(|mut devs| devs.find(|dev| dev.name().unwrap_or_default() == config.audio_interface))
-      .unwrap_or_else(|| {
-        if config.audio_interface == DEFAULT_INPUT { eprintln!("{}", DEFAULT_NOT_FOUND); }
-        else { eprintln!("{}", AUDIO_INTERFACE_NOT_FOUND);}
-        exit(1);
-      });
-
+  let device = find_audio_device(&host, &config);
   let audio_config  = device.default_input_config()
     .unwrap_or_else(|err| { eprintln!("Failed to poll default supported config from audio device: {err}"); exit(1) });
-
-  let sr = audio_config.config().sample_rate.0;
-  if sr != 48_000 {
-      eprintln!("The selected audio device is set to {sr} Hz.");
-      eprintln!("Opus streaming requires exactly 48,000 Hz.");
-      eprintln!("Please adjust your system audio settings and try again.");
-      exit(1);
-  }
-
-  let ch = audio_config.config().channels;
+  let (sr, ch) = get_device_settings(&audio_config);
   let (mut tx, mut rx) = ringbuf::HeapRb::<f32>::new(sr as usize * 4).split();
   let icecast = create_icecast_connection(config.clone());
   let inner_filename = filename.clone();
@@ -152,4 +128,37 @@ fn main() {
   println!("Press Ctrl+C to stop.");
 
   loop { std::thread::sleep(std::time::Duration::from_secs(1)); }
+}
+
+fn get_device_settings(config: &SupportedStreamConfig) -> (u32, u16) {
+  let sr = config.config().sample_rate.0;
+  if sr != 48_000 {
+      eprintln!("The selected audio device is set to {sr} Hz.");
+      eprintln!("Opus streaming requires exactly 48,000 Hz.");
+      eprintln!("Please adjust your system audio settings and try again.");
+      exit(1);
+  }
+
+  let ch = config.config().channels;
+  (sr, ch)
+}
+
+fn find_audio_device(host: &Host, config: &Config) -> Device {
+  host.input_devices()
+      .map_err(|err| {
+          eprintln!("Could not list input devices: {err}");
+          eprintln!("Make sure your audio hardware is connected and accessible.");
+          exit(1);
+      })
+      .ok()
+      .and_then(|mut devs| 
+        devs.find(|dev| 
+          dev.name().unwrap_or_default() == config.audio_interface
+        )
+      )
+      .unwrap_or_else(|| {
+        if config.audio_interface == DEFAULT_INPUT { eprintln!("{}", DEFAULT_NOT_FOUND); }
+        else { eprintln!("{}", AUDIO_INTERFACE_NOT_FOUND);}
+        exit(1);
+      })
 }
