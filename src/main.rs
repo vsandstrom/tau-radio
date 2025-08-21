@@ -22,6 +22,8 @@ use std::process::exit;
 
 #[cfg(target_os = "macos")]
 const DEFAULT_INPUT: &str = "BlackHole 2ch";
+#[cfg(target_os = "linux")]
+const DEFAULT_INPUT: &str = "jack";
 
 fn main() {
   let args = Args::parse();
