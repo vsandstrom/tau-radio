@@ -1,20 +1,20 @@
 mod args;
 mod config;
 mod err;
-mod icecast;
+mod audio;
 mod util;
 mod ui;
 
 use crate::args::Args;
 use crate::config::Config;
 use crate::err::{AUDIO_INTERFACE_NOT_FOUND, DEFAULT_NOT_FOUND, handle_input_build_error};
-use crate::icecast::create_icecast_connection;
+use crate::audio::{create_icecast_connection, find_audio_device};
 use crate::util::format_filename;
 
 use clap::Parser;
 use cpal::{
-  Device, Host, InputCallbackInfo, SampleRate,
-  traits::{ HostTrait, DeviceTrait, StreamTrait }
+  InputCallbackInfo, SampleRate,
+  traits::{ DeviceTrait, StreamTrait }
 };
 
 #[allow(unused)]
@@ -38,7 +38,6 @@ fn main() -> anyhow::Result<()> {
   let args = Args::parse();
   let config = Config::load_or_create(args.reset_config)
     .map(|c| c.merge_cli_args(args))?;
-  // merge_cli_args(&mut config, args);
   let filename = format_filename(config.file.clone());
   let host = cpal::default_host();
   let device = find_audio_device(&host, &config)?;
@@ -158,21 +157,4 @@ fn main() -> anyhow::Result<()> {
   loop { std::thread::sleep(std::time::Duration::from_secs(1)); }
 }
 
-fn find_audio_device(host: &Host, config: &Config) -> anyhow::Result<Device> {
-  let devices = host.input_devices()
-    .map_err(|err| 
-      anyhow::anyhow!("Could not list input devices: {err}\n\
-                       Make sure your audio hardware is connected and accessible"))?;
-  if let Some(dev) = devices
-    .filter_map(|d| d.name().ok().map(|n| (d, n)))
-    .find(|(_, name)| name == &config.audio_interface)
-    .map(|(d, _)| d) { 
-    return Ok(dev); 
-  } 
-  if config.audio_interface == DEFAULT_INPUT {
-    Err(anyhow::anyhow!("{}", DEFAULT_NOT_FOUND))
-  } else {
-    Err(anyhow::anyhow!("{}", AUDIO_INTERFACE_NOT_FOUND))
-  }
-}
 

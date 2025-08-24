@@ -1,4 +1,4 @@
-use std::{path::PathBuf, process::exit, fs};
+use std::{path::PathBuf, fs};
 use dialoguer::{Input, Password};
 use serde::{Serialize, Deserialize};
 use is_ip::is_ip;
@@ -19,20 +19,20 @@ pub struct Config {
 
 #[derive(Debug, thiserror::Error)]
 pub enum TauConfigError {
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
+  #[error("IO error: {0}")]
+  Io(#[from] std::io::Error),
 
-    #[error("TOML parsing error: {0}")]
-    Toml(#[from] toml::de::Error),
+  #[error("toml parsing error: {0}")]
+  Toml(#[from] toml::de::Error),
 
-    #[error("Invalid IP address: {0}")]
-    InvalidIp(String),
+  #[error("invalid IP: {0}")]
+  InvalidIp(String),
 
-    #[error("Invalid port number: {0}")]
-    InvalidPort(u16),
+  #[error("invalid port number: {0}")]
+  InvalidPort(u16),
 
-    #[error("User input error: {0}")]
-    Input(String),
+  #[error("user input error: {0}")]
+  Input(String),
 }
 
 impl Config {
@@ -60,9 +60,12 @@ impl Config {
     self
   }
 
-  fn load_config(path: &PathBuf) -> Result<Config, toml::de::Error> {
-    let settings = fs::read_to_string(&path).expect("could not read config file");
-    toml::from_str(&settings) //.expect("Invalid config format")
+  fn load_config(path: &PathBuf) -> Result<Config, TauConfigError> {
+    let settings = fs::read_to_string(path)?; //.expect("could not read config file");
+    match toml::from_str(&settings) { //.expect("Invalid config format")
+      Ok(config) => Ok(config),
+      Err(e) => Err(TauConfigError::Toml(e))
+    }
   }
 
   /// Creates an instance of Config, and reads from the saved `config.toml` file stored on disc.
@@ -70,10 +73,7 @@ impl Config {
   pub fn load_or_create(reset: bool) -> Result<Config, TauConfigError> {
     let path = Self::get_config_path();
     if path.exists() && !reset {
-      match Self::load_config(&path) {
-        Ok(config) => Ok(config),
-        Err(e) => Err(TauConfigError::Toml(e))
-      }
+      Self::load_config(&path)
     } else {
       println!("No config found at '{}'. Let's create one: ", path.display());
       println!("Credentials must correspond to what is set in icecast.xml");
@@ -99,7 +99,7 @@ impl Config {
         .default(8000)
         .interact_text()
         .map_err(|e| TauConfigError::Input(e.to_string()))?;
-      if !(1..=0xFFFF).contains(&port) { return Err(TauConfigError::InvalidPort(port)) }
+      if !(1..=0xFFFF).contains(&port) {return Err(TauConfigError::InvalidPort(port))}
 
       let mount = Input::new()
         .with_prompt("Icecast mount point")
