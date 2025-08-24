@@ -1,5 +1,4 @@
 use cpal::BuildStreamError;
-use cpal::BackendSpecificError;
 use std::error::Error;
 #[allow(unused)]
 use inline_colorization::{color_red, color_bright_cyan, color_reset};

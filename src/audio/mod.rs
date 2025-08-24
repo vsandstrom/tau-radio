@@ -2,7 +2,11 @@ use crate::{AUDIO_INTERFACE_NOT_FOUND, DEFAULT_INPUT, DEFAULT_NOT_FOUND};
 use crate::config::Config;
 
 use shout::{ShoutConnBuilder, ShoutConn}; 
-use cpal::{Host, Device, traits::{HostTrait, DeviceTrait}};
+use cpal::{
+  Host,
+  Device,
+  traits::{HostTrait, DeviceTrait}, 
+};
 
 pub fn create_icecast_connection(config: Config) -> anyhow::Result<ShoutConn> {
   match ShoutConnBuilder::new()
@@ -39,3 +43,4 @@ pub fn find_audio_device(host: &Host, config: &Config) -> anyhow::Result<Device>
     Err(anyhow::anyhow!("{}", AUDIO_INTERFACE_NOT_FOUND))
   }
 }
+
