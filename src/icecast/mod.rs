@@ -1,8 +1,7 @@
 use shout::{ShoutConnBuilder, ShoutConn}; 
-use crate::exit;
 use crate::config::Config;
 
-pub fn create_icecast_connection(config: Config) -> ShoutConn {
+pub fn create_icecast_connection(config: Config) -> anyhow::Result<ShoutConn> {
   match ShoutConnBuilder::new()
     .host(config.url.clone())
     .port(config.port)
@@ -12,10 +11,9 @@ pub fn create_icecast_connection(config: Config) -> ShoutConn {
     .protocol(shout::ShoutProtocol::HTTP)
     .format(shout::ShoutFormat::Ogg)
     .build() {
-      Ok(shout) => shout,
-      Err(e) => {
-        eprintln!("Could not connect to the IceCast host: {e:?}");
-        exit(1); 
-      }
+    Ok(shout) => Ok(shout),
+    Err(e) => {
+      Err(anyhow::anyhow!("Could not connect to the IceCast host: {e:?}"))
     }
+  }
 }

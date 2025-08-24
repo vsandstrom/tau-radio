@@ -3,25 +3,18 @@ mod config;
 mod err;
 mod icecast;
 mod util;
+mod ui;
 
 use crate::args::Args;
 use crate::config::Config;
-use crate::err::{AUDIO_INTERFACE_NOT_FOUND, DEFAULT_NOT_FOUND};
+use crate::err::{AUDIO_INTERFACE_NOT_FOUND, DEFAULT_NOT_FOUND, handle_input_build_error};
 use crate::icecast::create_icecast_connection;
 use crate::util::format_filename;
 
 use clap::Parser;
 use cpal::{
-  Device,
-  Host,
-  InputCallbackInfo,
-  SampleRate,
-  BuildStreamError,
-  traits::{
-    HostTrait,
-    DeviceTrait,
-    StreamTrait
-  }
+  Device, Host, InputCallbackInfo, SampleRate,
+  traits::{ HostTrait, DeviceTrait, StreamTrait }
 };
 
 #[allow(unused)]
@@ -29,7 +22,6 @@ use inline_colorization::*;
 use opusenc::{Comments, Encoder, RecommendedTag};
 use ringbuf::traits::{Consumer, Producer, Split};
 use std::process::exit;
-use std::error::Error;
 use cpal::StreamConfig;
 
 
@@ -42,21 +34,23 @@ const DEFAULT_SR: i32 = 48000;
 // TODO: Handle multichannel stream based on user config
 const DEFAULT_CH: usize = 2;
 
-fn main() {
+fn main() -> anyhow::Result<()> {
   let args = Args::parse();
   let config = Config::load_or_create(args.reset_config).merge_cli_args(args);
   // merge_cli_args(&mut config, args);
   let filename = format_filename(config.file.clone());
   let host = cpal::default_host();
-  let device = find_audio_device(&host, &config);
+  let device = find_audio_device(&host, &config)?;
   let (mut tx, mut rx) = ringbuf::HeapRb::<f32>::new(DEFAULT_SR as usize * 4).split();
-  let icecast = create_icecast_connection(config.clone());
+  let icecast = create_icecast_connection(config.clone())?;
   let inner_filename = filename.clone();
 
   let _stream_thread = if config.no_recording {
     std::thread::spawn(move || {
       let mut encoder = Encoder::create_pull(
-        Comments::create().add(RecommendedTag::Title, inner_filename.to_string()).unwrap(),
+        Comments::create()
+          .add(RecommendedTag::Title, inner_filename.to_string())
+          .unwrap(),
         DEFAULT_SR,
         DEFAULT_CH,
         opusenc::MappingFamily::MonoStereo).unwrap_or_else(|err| {
@@ -74,7 +68,9 @@ fn main() {
           std::thread::sleep(std::time::Duration::from_millis(2));
         }
         if opus_frame_buffer.len() == framesize {
-          encoder.write_float(&opus_frame_buffer).expect("block not a multiple of input channels");
+          encoder
+            .write_float(&opus_frame_buffer)
+            .expect("block not a multiple of input channels");
           // flush forces encoder to return a page, even if not ready. 
           // true is used when realtime streaming is more important than stability. 
           if let Some(page) = encoder.get_page(true) {
@@ -89,7 +85,9 @@ fn main() {
     std::thread::spawn(move || {
       let mut local_encoder = Encoder::create_file(
         inner_filename.clone().as_str(),
-        Comments::create().add(RecommendedTag::Title, inner_filename.clone().to_string()).unwrap(),
+        Comments::create()
+          .add(RecommendedTag::Title, inner_filename.clone().to_string())
+          .unwrap(),
         DEFAULT_SR,
         DEFAULT_CH,
         opusenc::MappingFamily::MonoStereo).unwrap_or_else(|err| {
@@ -98,10 +96,13 @@ fn main() {
       });
 
       let mut stream_encoder = Encoder::create_pull(
-        Comments::create().add(RecommendedTag::Title, inner_filename.clone().to_string()).unwrap(),
+        Comments::create()
+          .add(RecommendedTag::Title, inner_filename.clone().to_string())
+          .unwrap(),
         DEFAULT_SR,
         DEFAULT_CH,
-        opusenc::MappingFamily::MonoStereo).unwrap_or_else(|err| {
+        opusenc::MappingFamily::MonoStereo)
+        .unwrap_or_else(|err| {
           eprintln!("Could not create new realtime .ogg encoder: {err}");
           exit(1)
       });
@@ -115,8 +116,12 @@ fn main() {
           std::thread::sleep(std::time::Duration::from_millis(2));
         }
         if opus_frame_buffer.len() == framesize {
-          local_encoder.write_float(&opus_frame_buffer).expect("block not a multiple of input channels");
-          stream_encoder.write_float(&opus_frame_buffer).expect("block not a multiple of input channels");
+          local_encoder
+            .write_float(&opus_frame_buffer)
+            .expect("block not a multiple of input channels");
+          stream_encoder
+            .write_float(&opus_frame_buffer)
+            .expect("block not a multiple of input channels");
           // flush forces encoder to return a page, even if not ready. 
           // true is used when realtime streaming is more important than stability. 
           if let Some(page) = stream_encoder.get_page(true) {
@@ -137,56 +142,36 @@ fn main() {
 
   let input_cb= move |buf: &[f32], _info: &InputCallbackInfo| { tx.push_slice(buf); };
   let err_cb = |err| {eprintln!("{err}")};
-  let stream  = device.build_input_stream(&requested_config, input_cb, err_cb, None)
-    .map_err(handle_input_build_error).unwrap();
-    // .expect("could not build audio capture");
+  let stream  = device
+    .build_input_stream(
+      &requested_config, 
+      input_cb,
+      err_cb,
+      None
+    )
+    .map_err(handle_input_build_error)?;
   let _ = stream.play();
 
-  println!("\n{style_bold}{color_bright_yellow}Recording from: \t{style_reset}{color_bright_cyan}{}{color_reset}", device.name().unwrap_or("Unknown device".into()));
-  println!("{style_bold}{color_bright_yellow}Streaming live to: \t{color_bright_cyan}http://{}:{}/tau.ogg{color_reset}", config.url, config.port);
-  if !config.no_recording { 
-    println!("{style_bold}{color_bright_yellow}Saving local copy to: \t{style_reset}{color_bright_cyan}{}{color_reset}", filename); 
-  } else { 
-    println!("{color_red}{style_bold}Local recording is disabled.{style_reset}{color_reset}"); 
-  }
-  println!("Press Ctrl+C to stop.");
+  crate::ui::print_started_session_msg(config.audio_interface, &config.url, &config.port, &filename, config.no_recording);
 
   loop { std::thread::sleep(std::time::Duration::from_secs(1)); }
 }
 
-fn find_audio_device(host: &Host, config: &Config) -> Device {
-  host.input_devices()
-      .map_err(|err| {
-          eprintln!("Could not list input devices: {err}");
-          eprintln!("Make sure your audio hardware is connected and accessible.");
-          exit(1);
-      })
-      .ok()
-      .and_then(|mut devs| 
-        devs.find(|dev| 
-          dev.name().unwrap_or_default() == config.audio_interface
-        )
-      )
-      .unwrap_or_else(|| {
-        if config.audio_interface == DEFAULT_INPUT { eprintln!("{}", DEFAULT_NOT_FOUND); }
-        else { eprintln!("{}", AUDIO_INTERFACE_NOT_FOUND);}
-        exit(1);
-      })
-}
-
-fn handle_input_build_error(err: BuildStreamError) {
-  match err {
-    BuildStreamError::StreamConfigNotSupported => {
-      eprintln!("StreamConfigNotSupported: \n\tSome requirements for running Tau is not met by your audio source. \n\tCheck samplerate, it should be 48kHz.");
-      eprintln!("Please adjust your system audio settings and try again.");
-      exit(1)},
-    BuildStreamError::InvalidArgument => {eprintln!("Argument to underlying C-functions were not understood."); exit(1)},
-    BuildStreamError::StreamIdOverflow => {eprintln!("ID of stream caused an integer overflow."); exit(1)},
-    BuildStreamError::DeviceNotAvailable => {eprintln!("Audio Device is no longer available."); exit(1)},
-    BuildStreamError::BackendSpecific { err } => {
-      eprintln!("BackendSpecificError: {}\n\n{}", err.description, err.source().unwrap());
-      exit(1)
-    },
+fn find_audio_device(host: &Host, config: &Config) -> anyhow::Result<Device> {
+  let devices = host.input_devices()
+    .map_err(|err| 
+      anyhow::anyhow!("Could not list input devices: {err}\n\
+                       Make sure your audio hardware is connected and accessible"))?;
+  if let Some(dev) = devices
+    .filter_map(|d| d.name().ok().map(|n| (d, n)))
+    .find(|(_, name)| name == &config.audio_interface)
+    .map(|(d, _)| d) { 
+    return Ok(dev); 
+  } 
+  if config.audio_interface == DEFAULT_INPUT {
+    Err(anyhow::anyhow!("{}", DEFAULT_NOT_FOUND))
+  } else {
+    Err(anyhow::anyhow!("{}", AUDIO_INTERFACE_NOT_FOUND))
   }
-
 }
+

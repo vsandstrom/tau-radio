@@ -16,6 +16,25 @@ pub struct Config {
   pub no_recording: bool
 }
 
+
+#[derive(Debug, thiserror::Error)]
+pub enum TauConfigError {
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+
+    #[error("TOML parsing error: {0}")]
+    Toml(#[from] toml::de::Error),
+
+    #[error("Invalid IP address: {0}")]
+    InvalidIp(String),
+
+    #[error("Invalid port number: {0}")]
+    InvalidPort(u16),
+
+    #[error("User input error: {0}")]
+    Input(String),
+}
+
 impl Config {
   fn get_config_path() -> PathBuf {
     let local_dir = PathBuf::new().join("tau").join("config.toml");
@@ -41,70 +60,71 @@ impl Config {
     self
   }
 
+  fn load_config(path: &PathBuf) -> Result<Config, toml::de::Error> {
+    let settings = fs::read_to_string(&path).expect("could not read config file");
+    toml::from_str(&settings) //.expect("Invalid config format")
+  }
+
   /// Creates an instance of Config, and reads from the saved `config.toml` file stored on disc.
   /// If no `config.toml` file can be found, it prompts the user to enter one. 
-  pub fn load_or_create(reset: bool) -> Config {
+  pub fn load_or_create(reset: bool) -> Result<Config, TauConfigError> {
     let path = Self::get_config_path();
     if path.exists() && !reset {
-      let settings = fs::read_to_string(&path).expect("could not read config file");
-      toml::from_str(&settings).expect("Invalid config format")
+      match Self::load_config(&path) {
+        Ok(config) => Ok(config),
+        Err(e) => Err(TauConfigError::Toml(e))
+      }
     } else {
       println!("No config found at '{}'. Let's create one: ", path.display());
       println!("Credentials must correspond to what is set in icecast.xml");
       let username: String = Input::new()
         .with_prompt("Username")
         .interact_text()
-        .unwrap(); 
+        .map_err(|e| TauConfigError::Input(e.to_string()))?;
       
       let password: String = Password::new()
         .with_prompt("Password")
         .interact()
-        .unwrap(); 
+        .map_err(|e| TauConfigError::Input(e.to_string()))?;
 
       let url: String = Input::new()
         .with_prompt("Icecast URL")
         .default("127.0.0.1".into())
-        .interact_text().inspect(|a: &String| {
-          if !is_ip(a) {
-            eprintln!("IP is not valid");
-            exit(1);
-          }
-        }).unwrap();
+        .interact_text()
+        .map_err(|e| TauConfigError::Input(e.to_string()))?;
+      if !is_ip(&url) { return Err(TauConfigError::InvalidIp(url)) }
 
       let port: u16 = Input::new()
         .with_prompt("Port")
         .default(8000)
-        .interact_text().inspect(|x| {
-          if !(1..=0xFFFF).contains(x) {
-            eprintln!("Port is not within valid range: 1 - 65535");
-            exit(1);
-          }
-        }).unwrap();
+        .interact_text()
+        .map_err(|e| TauConfigError::Input(e.to_string()))?;
+      if !(1..=0xFFFF).contains(&port) { return Err(TauConfigError::InvalidPort(port)) }
 
       let mount = Input::new()
         .with_prompt("Icecast mount point")
         .default("tau.ogg".into())
         .interact_text()
-        .unwrap();
+        .map_err(|e| TauConfigError::Input(e.to_string()))?;
 
       let audio_interface = Input::new()
         .with_prompt("Audio Interface")
         .default(crate::DEFAULT_INPUT.to_string())
         .interact_text()
-        .unwrap();
+        .map_err(|e| TauConfigError::Input(e.to_string()))?;
 
 
       let file: String = Input::new()
         .with_prompt("Filename (leave empty for 'tau_[timestamp].ogg')")
         .allow_empty(true)
         .interact()
-        .unwrap();
+        .map_err(|e| TauConfigError::Input(e.to_string()))?;
 
       let no_recording = Input::new()
         .with_prompt("Disable local recording (Disables filename)")
         .default(false)
         .interact_text()
-        .unwrap();
+        .map_err(|e| TauConfigError::Input(e.to_string()))?;
 
       let config = Config {
         username,
@@ -118,13 +138,13 @@ impl Config {
       };
 
       if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).expect("Could not create config directory")
+        fs::create_dir_all(parent)?; //.expect("Could not create config directory")
       }
 
       let toml_string = toml::to_string_pretty(&config).unwrap();
-      fs::write(&path, toml_string).expect("Failed to write config file");
+      fs::write(&path, toml_string)?; //.expect("Failed to write config file");
 
-      config
+      Ok(config)
     }
   }
 }
