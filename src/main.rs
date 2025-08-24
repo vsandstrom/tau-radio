@@ -11,13 +11,26 @@ use crate::icecast::create_icecast_connection;
 use crate::util::format_filename;
 
 use clap::Parser;
-use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::{Device, Host, InputCallbackInfo, SupportedStreamConfig};
+use cpal::{
+  Device,
+  Host,
+  InputCallbackInfo,
+  SampleRate,
+  SupportedStreamConfig,
+  BuildStreamError,
+  traits::{
+    HostTrait,
+    DeviceTrait,
+    StreamTrait
+  }
+};
+
 #[allow(unused)]
 use inline_colorization::*;
 use opusenc::{Comments, Encoder, RecommendedTag};
 use ringbuf::traits::{Consumer, Producer, Split};
 use std::process::exit;
+use std::error::Error;
 
 
 #[cfg(target_os = "macos")]
@@ -115,9 +128,14 @@ fn main() {
     })
   };
 
+  let mut requested_config = audio_config.config();
+  requested_config.sample_rate = SampleRate(48000);
+
   let input_cb= move |buf: &[f32], _info: &InputCallbackInfo| { tx.push_slice(buf); };
   let err_cb = |err| {eprintln!("{err}")};
-  let stream  = device.build_input_stream(&audio_config.config(), input_cb, err_cb, None).expect("could not build audio capture");
+  let stream  = device.build_input_stream(&requested_config, input_cb, err_cb, None)
+    .map_err(handle_input_build_error).unwrap();
+    // .expect("could not build audio capture");
   let _ = stream.play();
 
   println!("\n{style_bold}{color_bright_yellow}Recording from: \t{style_reset}{color_bright_cyan}{}{color_reset}", device.name().unwrap_or("Unknown device".into()));
@@ -163,4 +181,20 @@ fn find_audio_device(host: &Host, config: &Config) -> Device {
         else { eprintln!("{}", AUDIO_INTERFACE_NOT_FOUND);}
         exit(1);
       })
+}
+
+fn handle_input_build_error(err: BuildStreamError) {
+  match err {
+    BuildStreamError::StreamConfigNotSupported => {
+      eprintln!("StreamConfigNotSupported: \n\tSome requirements for running Tau is not met by your audio source. \n\tCheck samplerate, it should be 48kHz.");
+      exit(1)},
+    BuildStreamError::InvalidArgument => {eprintln!("Argument to underlying C-functions were not understood."); exit(1)},
+    BuildStreamError::StreamIdOverflow => {eprintln!("ID of stream caused an integer overflow."); exit(1)},
+    BuildStreamError::DeviceNotAvailable => {eprintln!("Audio Device is no longer available."); exit(1)},
+    BuildStreamError::BackendSpecific { err } => {
+      eprintln!("BackendSpecificError: {}\n\n{}", err.description, err.source().unwrap());
+      exit(1)
+    },
+  }
+
 }
