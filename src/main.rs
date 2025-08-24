@@ -36,7 +36,8 @@ const DEFAULT_CH: usize = 2;
 
 fn main() -> anyhow::Result<()> {
   let args = Args::parse();
-  let config = Config::load_or_create(args.reset_config).merge_cli_args(args);
+  let config = Config::load_or_create(args.reset_config)
+    .map(|c| c.merge_cli_args(args))?;
   // merge_cli_args(&mut config, args);
   let filename = format_filename(config.file.clone());
   let host = cpal::default_host();
