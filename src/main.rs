@@ -16,7 +16,6 @@ use cpal::{
   Host,
   InputCallbackInfo,
   SampleRate,
-  SupportedStreamConfig,
   BuildStreamError,
   traits::{
     HostTrait,
@@ -31,12 +30,17 @@ use opusenc::{Comments, Encoder, RecommendedTag};
 use ringbuf::traits::{Consumer, Producer, Split};
 use std::process::exit;
 use std::error::Error;
+use cpal::StreamConfig;
 
 
 #[cfg(target_os = "macos")]
 const DEFAULT_INPUT: &str = "BlackHole 2ch";
 #[cfg(target_os = "linux")]
-const DEFAULT_INPUT: &str = "jack";
+const DEFAULT_INPUT: &str = "pipewire";
+
+const DEFAULT_SR: i32 = 48000;
+// TODO: Handle multichannel stream based on user config
+const DEFAULT_CH: usize = 2;
 
 fn main() {
   let args = Args::parse();
@@ -45,10 +49,7 @@ fn main() {
   let filename = format_filename(config.file.clone());
   let host = cpal::default_host();
   let device = find_audio_device(&host, &config);
-  let audio_config  = device.default_input_config()
-    .unwrap_or_else(|err| { eprintln!("Failed to poll default supported config from audio device: {err}"); exit(1) });
-  let (sr, ch) = get_device_settings(&audio_config);
-  let (mut tx, mut rx) = ringbuf::HeapRb::<f32>::new(sr as usize * 4).split();
+  let (mut tx, mut rx) = ringbuf::HeapRb::<f32>::new(DEFAULT_SR as usize * 4).split();
   let icecast = create_icecast_connection(config.clone());
   let inner_filename = filename.clone();
 
@@ -56,14 +57,14 @@ fn main() {
     std::thread::spawn(move || {
       let mut encoder = Encoder::create_pull(
         Comments::create().add(RecommendedTag::Title, inner_filename.to_string()).unwrap(),
-        sr as i32,
-        ch as usize,
+        DEFAULT_SR,
+        DEFAULT_CH,
         opusenc::MappingFamily::MonoStereo).unwrap_or_else(|err| {
           eprintln!("Could not create new realtime .ogg encoder: {err}");
           exit(1)
       });
     
-      let framesize = 960 * ch as usize;
+      let framesize = 960 * DEFAULT_CH;
       let mut opus_frame_buffer = Vec::with_capacity(framesize);
       loop {
         if let Some(sample) = rx.try_pop() {
@@ -89,8 +90,8 @@ fn main() {
       let mut local_encoder = Encoder::create_file(
         inner_filename.clone().as_str(),
         Comments::create().add(RecommendedTag::Title, inner_filename.clone().to_string()).unwrap(),
-        sr as i32,
-        ch as usize,
+        DEFAULT_SR,
+        DEFAULT_CH,
         opusenc::MappingFamily::MonoStereo).unwrap_or_else(|err| {
           eprintln!("Could not create new local .ogg file: {err}");
           exit(1)
@@ -98,14 +99,14 @@ fn main() {
 
       let mut stream_encoder = Encoder::create_pull(
         Comments::create().add(RecommendedTag::Title, inner_filename.clone().to_string()).unwrap(),
-        sr as i32,
-        ch as usize,
+        DEFAULT_SR,
+        DEFAULT_CH,
         opusenc::MappingFamily::MonoStereo).unwrap_or_else(|err| {
           eprintln!("Could not create new realtime .ogg encoder: {err}");
           exit(1)
       });
     
-      let framesize = 960 * ch as usize;
+      let framesize = 960 * DEFAULT_CH;
       let mut opus_frame_buffer = Vec::with_capacity(framesize);
       loop {
         if let Some(sample) = rx.try_pop() {
@@ -128,8 +129,7 @@ fn main() {
     })
   };
 
-  let mut requested_config = audio_config.config();
-  requested_config.sample_rate = SampleRate(48000);
+  let requested_config = StreamConfig{channels: DEFAULT_CH, sample_rate: SampleRate(DEFAULT_SR), buffer_size: cpal::BufferSize::Default};
 
   let input_cb= move |buf: &[f32], _info: &InputCallbackInfo| { tx.push_slice(buf); };
   let err_cb = |err| {eprintln!("{err}")};
@@ -148,19 +148,6 @@ fn main() {
   println!("Press Ctrl+C to stop.");
 
   loop { std::thread::sleep(std::time::Duration::from_secs(1)); }
-}
-
-fn get_device_settings(config: &SupportedStreamConfig) -> (u32, u16) {
-  let sr = config.config().sample_rate.0;
-  if sr != 48_000 {
-      eprintln!("The selected audio device is set to {sr} Hz.");
-      eprintln!("Opus streaming requires exactly 48,000 Hz.");
-      eprintln!("Please adjust your system audio settings and try again.");
-      exit(1);
-  }
-
-  let ch = config.config().channels;
-  (sr, ch)
 }
 
 fn find_audio_device(host: &Host, config: &Config) -> Device {
@@ -187,6 +174,7 @@ fn handle_input_build_error(err: BuildStreamError) {
   match err {
     BuildStreamError::StreamConfigNotSupported => {
       eprintln!("StreamConfigNotSupported: \n\tSome requirements for running Tau is not met by your audio source. \n\tCheck samplerate, it should be 48kHz.");
+      eprintln!("Please adjust your system audio settings and try again.");
       exit(1)},
     BuildStreamError::InvalidArgument => {eprintln!("Argument to underlying C-functions were not understood."); exit(1)},
     BuildStreamError::StreamIdOverflow => {eprintln!("ID of stream caused an integer overflow."); exit(1)},
