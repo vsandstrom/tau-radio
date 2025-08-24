@@ -129,7 +129,11 @@ fn main() {
     })
   };
 
-  let requested_config = StreamConfig{channels: DEFAULT_CH, sample_rate: SampleRate(DEFAULT_SR), buffer_size: cpal::BufferSize::Default};
+  let requested_config = StreamConfig{
+    channels: DEFAULT_CH as u16,
+    sample_rate: SampleRate(DEFAULT_SR as u32),
+    buffer_size: cpal::BufferSize::Default
+  };
 
   let input_cb= move |buf: &[f32], _info: &InputCallbackInfo| { tx.push_slice(buf); };
   let err_cb = |err| {eprintln!("{err}")};
