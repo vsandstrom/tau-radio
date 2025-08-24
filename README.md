@@ -8,7 +8,7 @@ encoded in the same format as the stream itself. Currently the only option is
 **ogg opus**.
 
 The first time using the tool, it will search your system for a config file. 
-It looks for it in the directory: (early days so only tested on macOS yet)
+It looks for it in the directory:
 ```bash
 $ $HOME/.config/tau/config.toml
 ```
