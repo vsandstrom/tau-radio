@@ -3,7 +3,7 @@ use clap::Parser;
 #[derive(Parser)]
 #[command(name = "Tau")]
 #[command(version = "0.0.1")]
-#[command(about = "Streams to an IceCast server using FFmpeg")]
+#[command(about = "Hijacks chosen audio device, encodes audio into Ogg Opus and streams to IceCast server")]
 pub(crate) struct Args {
   /// IceCast server username
   #[arg(long)]
