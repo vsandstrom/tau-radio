@@ -17,6 +17,7 @@ use cpal::{ SampleRate, traits::{ DeviceTrait, StreamTrait } };
 use inline_colorization::*;
 use ringbuf::traits::{Producer, Split};
 use cpal::StreamConfig;
+use std::path::PathBuf;
 
 
 #[cfg(target_os = "macos")]
@@ -37,6 +38,9 @@ fn main() -> anyhow::Result<()> {
   let device = crate::audio::find_audio_device(&host, &config)?;
   let (mut tx, rx) = ringbuf::HeapRb::<f32>::new(DEFAULT_SR as usize * 4).split();
   let icecast = crate::audio::create_icecast_connection(config.clone())?;
+  let home = std::env::var("HOME")?;
+  let path = PathBuf::from(home).join("tau").join("recordings");
+  
 
   // Create streaming threads, which loop endlessly
   // TODO: Gracefully shut down
@@ -44,7 +48,7 @@ fn main() -> anyhow::Result<()> {
     if config.no_recording {
       crate::threads::icecast_thread(icecast, rx, filename.clone())
     } else {
-      crate::threads::icecast_rec_thread(icecast, rx, filename.clone())
+      crate::threads::icecast_rec_thread(icecast, rx, &path, filename.clone())
     }
   };
 
@@ -68,6 +72,7 @@ fn main() -> anyhow::Result<()> {
     config.audio_interface,
     &config.url,
     &config.port,
+    &path,
     &filename,
     config.no_recording
   );

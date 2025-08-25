@@ -1,6 +1,7 @@
 use opusenc::{Encoder, Comments, RecommendedTag};
 use ringbuf::traits::Consumer;
 use crate::{ DEFAULT_SR, DEFAULT_CH };
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::process::exit;
 use shout::ShoutConn;
@@ -55,11 +56,22 @@ pub fn icecast_thread(
 pub fn icecast_rec_thread(
   icecast: ShoutConn,
   mut rx: impl Consumer<Item=f32> + Send + 'static,
+  path: &PathBuf,
   filename: Arc<String>
   ) -> std::thread::JoinHandle<()> {
+    if !path.exists() {
+      std::fs::create_dir_all(path).map_err(|e| {
+        eprintln!("Could not create directory for recordings: {e}");
+        exit(1);
+      }).unwrap()
+    }
+    
+    let out_path = path.join(filename.clone().to_string());
+
     std::thread::spawn(move || {
       let mut local_encoder = Encoder::create_file(
-        filename.clone().as_str(),
+        out_path,
+        // filename.clone().as_str(),
         Comments::create()
           .add(RecommendedTag::Title, filename.clone().to_string())
           .unwrap(),
