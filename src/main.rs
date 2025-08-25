@@ -8,7 +8,7 @@ mod ui;
 
 use crate::args::Args;
 use crate::config::Config;
-use crate::err::{AUDIO_INTERFACE_NOT_FOUND, DEFAULT_NOT_FOUND};
+use crate::err::{AUDIO_INTERFACE_NOT_FOUND};
 
 use clap::Parser;
 use cpal::{ SampleRate, traits::{ DeviceTrait, StreamTrait } };
@@ -18,7 +18,6 @@ use inline_colorization::*;
 use ringbuf::traits::{Producer, Split};
 use cpal::StreamConfig;
 use std::path::PathBuf;
-
 
 #[cfg(target_os = "macos")]
 const DEFAULT_INPUT: &str = "BlackHole 2ch";
@@ -31,16 +30,34 @@ const DEFAULT_CH: usize = 2;
 
 fn main() -> anyhow::Result<()> {
   let args = Args::parse();
+  let output = &args.output.clone();
   let config = Config::load_or_create(args.reset_config)
     .map(|c| c.merge_cli_args(args))?;
   let filename = crate::util::format_filename(config.file.clone());
+  let home = std::env::var("HOME")?;
+  let out_dir = match output {
+    Some(p) => PathBuf::from(p),
+    None => PathBuf::from(home).join("tau").join("recordings")
+  };
+
+  let path = out_dir.join(filename.clone().to_string());
+  if path.exists() {
+    return Err(
+      anyhow::anyhow!(
+        "{}\n\tUnable to overwrite already existing file:{}\n\t{}{}{}", 
+        color_yellow,
+        color_reset,
+        color_red,
+        path.display(), 
+        color_reset
+      )
+    );
+  }
+
   let host = cpal::default_host();
   let device = crate::audio::find_audio_device(&host, &config)?;
   let (mut tx, rx) = ringbuf::HeapRb::<f32>::new(DEFAULT_SR as usize * 4).split();
   let icecast = crate::audio::create_icecast_connection(config.clone())?;
-  let home = std::env::var("HOME")?;
-  let path = PathBuf::from(home).join("tau").join("recordings");
-  
 
   // Create streaming threads, which loop endlessly
   // TODO: Gracefully shut down
