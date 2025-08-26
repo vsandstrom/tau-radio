@@ -4,16 +4,40 @@ use std::error::Error;
 use inline_colorization::{color_red, color_bright_cyan, color_reset};
 
 #[cfg(target_os="macos")]
-pub const DEFAULT_NOT_FOUND: &str = 
-      "\n{color_red}Error:{color_reset} {DEFAULT_INPUT} driver not found.\n\
-      \nInstall with:\n {color_bright_cyan}$ brew install --cask blackhole-2ch{color_reset}\n\
-      or:\n{color_bright_cyan} $ port install BlackHole{color_reset}\n";
+use crate::DEFAULT_INPUT;
+
+#[cfg(target_os="macos")]
+pub fn default_not_found() -> String {
+  format!("\n{}Error:{} {} driver not found.\n\
+    \nInstall with:\n {}$ brew install --cask blackhole-2ch{}\n\
+    or:\n{} $ port install BlackHole{}\n", 
+    color_red,
+    color_reset,
+    DEFAULT_INPUT,
+    color_bright_cyan,
+    color_reset,
+    color_bright_cyan,
+    color_reset,
+  )
+}
 
 #[cfg(target_os="linux")]
-pub const DEFAULT_NOT_FOUND: &str = 
-      "\n{color_red}Error:{color_reset} {DEFAULT_INPUT} driver not found.\n\
-      \nInstall with:\n {color_bright_cyan}$ brew install --cask blackhole-2ch{color_reset}\n\
-      or:\n{color_bright_cyan} $ port install BlackHole{color_reset}\n";
+use crate::DEFAULT_INPUT;
+
+#[cfg(target_os="linux")]
+pub fn default_not_found() -> String {
+  format!("\n{}Error:{} {} driver not found.\n\
+    \nInstall with:\n {}$ pacman -Syuy pipewire pipewire-alsa pipewire-jack{}\n\
+    or:\n{} $ apt-get install pipewire pipewire-alsa pipewire-jack{}\n", 
+    color_red,
+    color_reset,
+    DEFAULT_INPUT,
+    color_bright_cyan,
+    color_reset,
+    color_bright_cyan,
+    color_reset,
+  )
+}
 
 pub const AUDIO_INTERFACE_NOT_FOUND: &str = 
       "\nThe audio_interface you have chosen does not match anything on your system. \n\

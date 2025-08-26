@@ -1,4 +1,4 @@
-use crate::{AUDIO_INTERFACE_NOT_FOUND, DEFAULT_INPUT, DEFAULT_NOT_FOUND};
+use crate::{AUDIO_INTERFACE_NOT_FOUND, DEFAULT_INPUT, err::default_not_found};
 use crate::config::Config;
 
 use shout::{ShoutConnBuilder, ShoutConn}; 
@@ -38,7 +38,7 @@ pub fn find_audio_device(host: &Host, config: &Config) -> anyhow::Result<Device>
     return Ok(dev); 
   } 
   if config.audio_interface == DEFAULT_INPUT {
-    Err(anyhow::anyhow!("{}", DEFAULT_NOT_FOUND))
+    Err(anyhow::anyhow!("{}", default_not_found()))
   } else {
     Err(anyhow::anyhow!("{}", AUDIO_INTERFACE_NOT_FOUND))
   }
