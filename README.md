@@ -26,8 +26,11 @@ If there is no config file located there, you will be prompted to create one.
 If you want to temporarily overwrite the config, you are able to pass arguments.
 
 ```bash
-# Uses temporary credentials, and disables the local recording. 
-$ tau -- --username <username> --password <password> --no-recording
+# Ex: Uses temporary credentials, and disables the local recording. 
+$ tau \
+  --username <username> \
+  --password <password> \
+  --no-recording
 ```
 
 ### Dependencies
