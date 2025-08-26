@@ -72,7 +72,6 @@ impl Config {
     fn load_config(path: &PathBuf) -> Result<Config, TauConfigError> {
         let settings = fs::read_to_string(path)?; //.expect("could not read config file");
         match toml::from_str(&settings) {
-            //.expect("Invalid config format")
             Ok(config) => Ok(config),
             Err(e) => Err(TauConfigError::Toml(e)),
         }
@@ -135,12 +134,6 @@ impl Config {
                 .allow_empty(true)
                 .interact()
                 .map_err(|e| TauConfigError::Input(e.to_string()))?;
-
-            // let no_recording = Input::new()
-            //   .with_prompt("Disable local recording (Disables filename)")
-            //   .default(false)
-            //   .interact_text()
-            //   .map_err(|e| TauConfigError::Input(e.to_string()))?;
 
             let config = Config {
                 username,
