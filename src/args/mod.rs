@@ -3,56 +3,59 @@ use clap::Parser;
 #[derive(Parser)]
 #[command(name = "Tau")]
 #[command(version = "0.0.1")]
-#[command(about = "Hijacks chosen audio device, encodes audio into Ogg Opus and streams to IceCast server")]
+#[command(
+    about = "Hijacks chosen audio device, encodes audio into Ogg Opus and streams to IceCast server"
+)]
 pub(crate) struct Args {
-  /// IceCast server username
-  #[arg(long)]
-  pub username: Option<String>,
+    /// IceCast server username
+    #[arg(long)]
+    pub username: Option<String>,
 
-  /// IceCast server password
-  #[arg(long)]
-  pub password: Option<String>,
+    /// IceCast server password
+    #[arg(long)]
+    pub password: Option<String>,
 
-  /// IceCast server URL
-  #[arg(short, long, value_parser=validate_ip)]
-  pub url: Option<String>,
+    /// IceCast server URL
+    #[arg(short, long, value_parser=validate_ip)]
+    pub url: Option<String>,
 
-  /// IceCast server port
-  #[arg(short, long, value_parser=validate_port)]
-  pub port: Option<u16>,
+    /// IceCast server port
+    #[arg(short, long, value_parser=validate_port)]
+    pub port: Option<u16>,
 
-  #[arg(short, long)]
-  pub mount: Option<String>,
+    #[arg(short, long)]
+    pub mount: Option<String>,
 
-  /// Optional custom filename of local copy
-  #[arg(short, long)]
-  pub file: Option<String>,
+    /// Optional custom filename of local copy
+    #[arg(short, long)]
+    pub file: Option<String>,
 
-  /// Disables the local recording of stream
-  #[arg(long)]
-  pub no_recording: bool,
-  
-  #[arg(short, long)]
-  pub output: Option<String>,
+    /// Disables the local recording of stream
+    #[arg(long)]
+    pub no_recording: bool,
 
-  #[arg(long)]
-  pub reset_config: bool,
+    #[arg(short, long)]
+    pub output: Option<String>,
+
+    #[arg(long)]
+    pub reset_config: bool,
 }
 
-
 fn validate_ip(s: &str) -> Result<String, String> {
-  if is_ip::is_ip(s) {
-    return Ok(s.to_string());
-  }
-  Err("IP is not valid".to_owned())
+    if is_ip::is_ip(s) {
+        return Ok(s.to_string());
+    }
+    Err("IP is not valid".to_owned())
 }
 
 fn validate_port(p: &str) -> Result<u16, String> {
-  let p = match p.parse::<u16>() {
-    Ok(n) => n,
-    Err(e) => return Err(format!("Unable to parse as number: {e}"))
-  };
+    let p = match p.parse::<u16>() {
+        Ok(n) => n,
+        Err(e) => return Err(format!("Unable to parse as number: {e}")),
+    };
 
-  if (1..=0xFFFF).contains(&p) { return Ok(p); } 
-  Err("Port is not within valid range: 1 - 65535".to_owned())
+    if (1..=0xFFFF).contains(&p) {
+        return Ok(p);
+    }
+    Err("Port is not within valid range: 1 - 65535".to_owned())
 }
