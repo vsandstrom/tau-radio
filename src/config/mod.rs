@@ -1,7 +1,8 @@
 use dialoguer::{Input, Password};
-use is_ip::is_ip;
 use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf};
+
+use crate::args::validate_port;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
@@ -101,21 +102,24 @@ impl Config {
 
             let url: String = Input::new()
                 .with_prompt("Icecast URL")
-                .default("127.0.0.1".into())
+                .default("127.0.0.1".to_string())
                 .interact_text()
-                .map_err(|e| TauConfigError::Input(e.to_string()))?;
-            if !is_ip(&url) {
-                return Err(TauConfigError::InvalidIp(url));
-            }
+                .map_err(|e| TauConfigError::Input(e.to_string()))
+                .and_then(crate::args::validate_ip)?;
+            //   |url| {
+            //
+            //     if !is_ip(&url) {
+            //         return Err(TauConfigError::InvalidIp(url));
+            //     }
+            //     Ok(url)
+            // })?;
 
             let port: u16 = Input::new()
                 .with_prompt("Port")
                 .default(8000)
                 .interact_text()
-                .map_err(|e| TauConfigError::Input(e.to_string()))?;
-            if !(1..=0xFFFF).contains(&port) {
-                return Err(TauConfigError::InvalidPort(port));
-            }
+                .map_err(|e| TauConfigError::Input(e.to_string()))
+                .and_then(validate_port)?;
 
             let mount = Input::new()
                 .with_prompt("Icecast mount point")

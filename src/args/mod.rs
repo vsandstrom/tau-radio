@@ -1,5 +1,8 @@
 use clap::Parser;
 
+use crate::config::TauConfigError;
+use is_ip::is_ip;
+
 #[derive(Parser)]
 #[command(name = "Tau")]
 #[command(version = "0.0.1")]
@@ -16,11 +19,13 @@ pub(crate) struct Args {
     pub password: Option<String>,
 
     /// IceCast server URL
-    #[arg(short, long, value_parser=validate_ip)]
+    #[arg(short, long, value_parser=|s: &str| validate_ip(s.to_string()))]
     pub url: Option<String>,
 
     /// IceCast server port
-    #[arg(short, long, value_parser=validate_port)]
+    #[arg(short, long, value_parser=|p: &str| {
+      validate_port(parse_port(p).unwrap())
+    })]
     pub port: Option<u16>,
 
     #[arg(short, long)]
@@ -41,21 +46,21 @@ pub(crate) struct Args {
     pub reset_config: bool,
 }
 
-fn validate_ip(s: &str) -> Result<String, String> {
-    if is_ip::is_ip(s) {
-        return Ok(s.to_string());
+pub fn validate_ip(url: String) -> Result<String, TauConfigError> {
+    if !is_ip(&url) {
+        return Err(TauConfigError::InvalidIp(url));
     }
-    Err("IP is not valid".to_owned())
+    Ok(url)
 }
 
-fn validate_port(p: &str) -> Result<u16, String> {
-    let p = match p.parse::<u16>() {
-        Ok(n) => n,
-        Err(e) => return Err(format!("Unable to parse as number: {e}")),
-    };
+fn parse_port(p: &str) -> Result<u16, TauConfigError> {
+    p.parse::<u16>()
+        .map_err(|e| TauConfigError::Input(format!("Unable to parse as number: {e}")))
+}
 
-    if (1..=0xFFFF).contains(&p) {
-        return Ok(p);
+pub fn validate_port(port: u16) -> Result<u16, TauConfigError> {
+    if !(1..=0xFFFF).contains(&port) {
+        return Err(TauConfigError::InvalidPort(port));
     }
-    Err("Port is not within valid range: 1 - 65535".to_owned())
+    Ok(port)
 }
