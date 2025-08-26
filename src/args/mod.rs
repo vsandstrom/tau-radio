@@ -14,26 +14,29 @@ pub(crate) struct Args {
   pub password: Option<String>,
 
   /// IceCast server URL
-  #[arg(long, value_parser=validate_ip)]
+  #[arg(short, long, value_parser=validate_ip)]
   pub url: Option<String>,
 
   /// IceCast server port
-  #[arg(long, value_parser=validate_port)]
+  #[arg(short, long, value_parser=validate_port)]
   pub port: Option<u16>,
 
-  #[arg(long)]
+  #[arg(short, long)]
   pub mount: Option<String>,
 
   /// Optional custom filename of local copy
-  #[arg(long)]
+  #[arg(short, long)]
   pub file: Option<String>,
 
   /// Disables the local recording of stream
   #[arg(long)]
-  pub no_recording: Option<bool>,
+  pub no_recording: bool,
+  
+  #[arg(short, long)]
+  pub output: Option<String>,
 
   #[arg(long)]
-  pub reset_config: bool
+  pub reset_config: bool,
 }
 
 
