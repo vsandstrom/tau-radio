@@ -30,14 +30,13 @@ pub(crate) struct Args {
 
   /// Disables the local recording of stream
   #[arg(long)]
-  pub no_recording: Option<bool>,
+  pub no_recording: bool,
   
   #[arg(short, long)]
   pub output: Option<String>,
 
   #[arg(long)]
   pub reset_config: bool,
-  
 }
 
 

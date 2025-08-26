@@ -13,7 +13,7 @@ pub struct Config {
   pub mount: String,
   pub audio_interface: String,
   pub file: Option<String>,
-  pub no_recording: bool
+  // pub no_recording: bool
 }
 
 
@@ -49,14 +49,14 @@ impl Config {
   }
 
   /// Merges local config.toml with current CLI arguments if there are any.
-  pub fn merge_cli_args(mut self, args: crate::args::Args) -> Self {
-    if let Some(username) = args.username { self.username = username; }
-    if let Some(password) = args.password { self.password = password; }
-    if let Some(url) = args.url { self.url = url; }
+  pub fn merge_cli_args(mut self, args: &crate::args::Args) -> Self {
+    if let Some(username) = &args.username { self.username = username.to_string(); }
+    if let Some(password) = &args.password { self.password = password.to_string(); }
+    if let Some(url) = &args.url { self.url = url.to_string(); }
     if let Some(port) = args.port { self.port = port; }
-    if let Some(mount) = args.mount { self.mount = mount; }
-    if let Some(file) = args.file { self.file = Some(file); }
-    if let Some(no_rec) = args.no_recording { self.no_recording = no_rec };
+    if let Some(mount) = &args.mount { self.mount = mount.to_string(); }
+    if let Some(file) = &args.file { self.file = Some(file.to_string()); }
+    // if let Some(no_rec) = args.no_recording { self.no_recording = no_rec };
     self
   }
 
@@ -120,11 +120,11 @@ impl Config {
         .interact()
         .map_err(|e| TauConfigError::Input(e.to_string()))?;
 
-      let no_recording = Input::new()
-        .with_prompt("Disable local recording (Disables filename)")
-        .default(false)
-        .interact_text()
-        .map_err(|e| TauConfigError::Input(e.to_string()))?;
+      // let no_recording = Input::new()
+      //   .with_prompt("Disable local recording (Disables filename)")
+      //   .default(false)
+      //   .interact_text()
+      //   .map_err(|e| TauConfigError::Input(e.to_string()))?;
 
       let config = Config {
         username,
@@ -134,7 +134,7 @@ impl Config {
         mount,
         audio_interface,
         file: if file.trim().is_empty() {None} else { Some(file) },
-        no_recording
+        // no_recording
       };
 
       if let Some(parent) = path.parent() {

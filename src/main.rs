@@ -32,7 +32,7 @@ fn main() -> anyhow::Result<()> {
   let args = Args::parse();
   let output = &args.output.clone();
   let config = Config::load_or_create(args.reset_config)
-    .map(|c| c.merge_cli_args(args))?;
+    .map(|c| c.merge_cli_args(&args))?;
   let filename = crate::util::format_filename(config.file.clone());
   let home = std::env::var("HOME")?;
   let out_dir = match output {
@@ -62,10 +62,10 @@ fn main() -> anyhow::Result<()> {
   // Create streaming threads, which loop endlessly
   // TODO: Gracefully shut down
   let _ = {
-    if config.no_recording {
+    if args.no_recording {
       crate::threads::icecast_thread(icecast, rx, filename.clone())
     } else {
-      crate::threads::icecast_rec_thread(icecast, rx, &path, filename.clone())
+      crate::threads::icecast_rec_thread(icecast, rx, &out_dir, filename.clone())
     }
   };
 
@@ -90,8 +90,7 @@ fn main() -> anyhow::Result<()> {
     &config.url,
     &config.port,
     &path,
-    &filename,
-    config.no_recording
+    args.no_recording
   );
 
   loop { std::thread::sleep(std::time::Duration::from_secs(1)); }
