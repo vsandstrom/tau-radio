@@ -19,8 +19,9 @@ use cpal::{
 use cpal::StreamConfig;
 #[allow(unused)]
 use inline_colorization::*;
-use ringbuf::traits::{Producer, Split};
-use std::path::PathBuf;
+use ringbuf::{HeapRb, traits::{Producer, Split}};
+use std::{path::PathBuf, thread::spawn};
+use self::threads::websocket_thread;
 
 #[cfg(target_os = "macos")]
 const DEFAULT_INPUT: &str = "BlackHole 2ch";
@@ -30,6 +31,14 @@ const DEFAULT_INPUT: &str = "pipewire";
 const DEFAULT_SR: i32 = 48000;
 // TODO: Handle multichannel stream based on user config
 const DEFAULT_CH: usize = 2;
+
+
+#[derive(Clone, Copy, Debug)]
+enum StreamType {
+  IceCast,
+  WebSocket
+}
+
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
@@ -41,6 +50,8 @@ fn main() -> anyhow::Result<()> {
         Some(p) => PathBuf::from(p),
         None => PathBuf::from(home).join("tau").join("recordings"),
     };
+
+    let stream_type = StreamType::WebSocket;
 
     let path = out_dir.join(filename.clone().to_string());
     if path.exists() {
@@ -56,18 +67,30 @@ fn main() -> anyhow::Result<()> {
 
     let host = cpal::default_host();
     let device = crate::audio::find_audio_device(&host, &config)?;
-    let (mut tx, rx) = ringbuf::HeapRb::<f32>::new(DEFAULT_SR as usize * 4).split();
-    let icecast = crate::audio::create_icecast_connection(config.clone())?;
+    let (mut tx, rx) = HeapRb::<f32>::new(DEFAULT_SR as usize * 4)
+      .split();
 
-    // Create streaming threads, which loop endlessly
-    // TODO: Gracefully shut down
-    let _ = {
-        if args.no_recording {
-            crate::threads::icecast_thread(icecast, rx, filename.clone())
-        } else {
-            crate::threads::icecast_rec_thread(icecast, rx, &out_dir, filename.clone())
+    match stream_type {
+        StreamType::IceCast => {
+            let icecast = crate::audio::create_icecast_connection(config.clone())?;
+            // Create streaming threads, which loop endlessly
+            // TODO: Gracefully shut down
+            let _ = {
+                if args.no_recording {
+                    crate::threads::icecast_thread(icecast, rx, filename.clone())
+                } else {
+                    crate::threads::icecast_rec_thread(icecast, rx, &out_dir, filename.clone())
+                }
+            };
+        },
+        StreamType::WebSocket => {
+          let port = config.port;
+          let url = config.url.clone();
+          let filename = filename.clone();
+          spawn(move || crate::threads::websocket_thread(rx, url, port, filename)
+          );
         }
-    };
+    }
 
     let requested_config = StreamConfig {
         channels: DEFAULT_CH as u16,
@@ -79,7 +102,7 @@ fn main() -> anyhow::Result<()> {
         .build_input_stream(
             &requested_config,
             move |buf, _info| {
-                tx.push_slice(buf);
+                let _ = tx.push_slice(buf);
             },
             |e| {
                 eprintln!("{e}");

@@ -2,6 +2,7 @@ use clap::Parser;
 
 use crate::config::TauConfigError;
 use is_ip::is_ip;
+use crate::StreamType;
 
 #[derive(Parser)]
 #[command(name = "Tau")]
@@ -44,6 +45,9 @@ pub(crate) struct Args {
 
     #[arg(long)]
     pub reset_config: bool,
+
+    // #[arg(long, value_parser=validate_stream_type)]
+    // pub stream_mode: crate::StreamType
 }
 
 pub fn validate_ip(url: String) -> Result<String, TauConfigError> {
@@ -63,4 +67,12 @@ pub fn validate_port(port: u16) -> Result<u16, TauConfigError> {
         return Err(TauConfigError::InvalidPort(port));
     }
     Ok(port)
+}
+
+pub fn validate_stream_type(t: &str) -> Result<StreamType, TauConfigError> {
+  match t {
+    "icecast" => Ok(StreamType::IceCast),
+    "websocket" => Ok(StreamType::WebSocket),
+    _ => Err(TauConfigError::Input("Invalid streaming type".to_string()))
+  }
 }
