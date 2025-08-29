@@ -1,21 +1,22 @@
 use crate::{DEFAULT_CH, DEFAULT_SR};
 use std::{
+    fmt::format,
+    net::{TcpListener, TcpStream, ToSocketAddrs, UdpSocket},
     path::PathBuf,
     process::exit,
-    time::Duration,
-    thread::{sleep, spawn, JoinHandle},
-    net::{TcpListener, TcpStream},
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
     },
+    thread::{JoinHandle, sleep, spawn},
+    time::Duration,
 };
 
-use tungstenite::{accept, Message, WebSocket};
-use crossbeam::channel::{bounded, Receiver};
+use crossbeam::channel::{Receiver, bounded};
 use opusenc::{Comments, Encoder, RecommendedTag};
 use ringbuf::traits::Consumer;
 use shout::ShoutConn;
+use tungstenite::{Message, WebSocket, accept};
 
 fn create_encoder(filename: &str) -> Encoder {
     Encoder::create_pull(
@@ -149,7 +150,7 @@ pub fn websocket_thread(
     };
     let framesize = 960 * DEFAULT_CH;
     let mut opus_frame_buffer = Vec::with_capacity(framesize);
-    let (opus_tx, opus_rx) = bounded::<Vec<u8>>(4096 *  32);
+    let (opus_tx, opus_rx) = bounded::<Vec<u8>>(4096 * 32);
 
     // let (mut opus_tx, opus_rx) = ringbuf::HeapRb::new(256).split();
     let connected = Arc::new(AtomicBool::new(false));
@@ -173,7 +174,7 @@ pub fn websocket_thread(
                 // true is used when realtime streaming is more important than stability.
                 opus_frame_buffer.clear();
                 if let Some(page) = encoder.get_page(true) {
-                  // TODO: NO SOUND IS GETTING THROUGH HERE
+                    // TODO: NO SOUND IS GETTING THROUGH HERE
                     println!("send");
                     if let Err(e) = opus_tx.send(page.to_vec()) {
                         eprint!(
@@ -200,14 +201,14 @@ pub fn websocket_thread(
                     let connected_inner = connected.clone();
                     let opus_rx_receiver = opus_rx.clone();
                     spawn(move || {
-                        handle_socket(&mut ws, &opus_rx_receiver);
+                        handle_websocket(&mut ws, &opus_rx_receiver);
                         connected_inner.store(false, Ordering::SeqCst);
                     });
                 }
                 Err(e) => {
-                  eprintln!("HandshakeError: {e}");
-                  exit(1);
-                },
+                    eprintln!("HandshakeError: {e}");
+                    exit(1);
+                }
             },
             Err(_) => todo!(),
         }
@@ -215,14 +216,81 @@ pub fn websocket_thread(
     encoder_thread
 }
 
-fn handle_socket(ws: &mut WebSocket<TcpStream>, rx: &Receiver<Vec<u8>>) {
+pub fn udp_thread(
+    mut rx: impl Consumer<Item = f32> + Send + 'static,
+    ip: String,
+    port: u16,
+    filename: Arc<String>,
+) -> JoinHandle<()> {
+    let mut socket = match UdpSocket::bind("127.0.0.1:0") {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("Could not bind to addr: {e}");
+            exit(1)
+        }
+    };
+    let framesize = 960 * DEFAULT_CH;
+    let mut opus_frame_buffer = Vec::with_capacity(framesize);
+    let (opus_tx, opus_rx) = bounded::<Vec<u8>>(4096 * 32);
+
+    // Encoding thread
+    let _ = spawn(move || {
+        let mut encoder = create_encoder(&filename);
+
+        loop {
+            if let Some(sample) = rx.try_pop() {
+                opus_frame_buffer.push(sample);
+            } else {
+                sleep(Duration::from_millis(2));
+            }
+
+            if opus_frame_buffer.len() == framesize {
+                encoder
+                    .write_float(&opus_frame_buffer)
+                    .expect("block not a multiple of input channels");
+                // flush forces encoder to return a page, even if not ready.
+                // true is used when realtime streaming is more important than stability.
+                opus_frame_buffer.clear();
+                if let Some(page) = encoder.get_page(true) {
+                    if let Err(e) = opus_tx.send(page.to_vec()) {
+                        eprint!(
+                            " \
+                      Could not append encoded ogg to shared \
+                      ringbuffer to websocket thread: {e}"
+                        );
+                        exit(1);
+                    }
+                }
+            }
+        }
+    });
+
+    // UDP Thread
+    spawn(move || {
+        handle_udpsocket(&mut socket, &opus_rx, format!("{ip}:{port}"));
+    })
+}
+
+fn handle_udpsocket(udp: &mut UdpSocket, rx: &Receiver<Vec<u8>>, url: impl ToSocketAddrs) {
     loop {
         while let Ok(page) = rx.recv() {
-            println!("receive");
+            println!("sending: {}", page.len());
+            if let Err(e) = udp.send_to(&page, &url) {
+                eprintln!("UDP socket send error: {e}");
+                break;
+            }
+        }
+    }
+}
+
+fn handle_websocket(ws: &mut WebSocket<TcpStream>, rx: &Receiver<Vec<u8>>) {
+    loop {
+        while let Ok(page) = rx.recv() {
+            println!("sending: {}", page.len());
             if let Err(e) = ws.send(Message::Binary(page.into())) {
                 eprintln!("Websocket send error: {e}");
                 break;
             }
-        } 
+        }
     }
 }

@@ -19,9 +19,11 @@ use cpal::{
 use cpal::StreamConfig;
 #[allow(unused)]
 use inline_colorization::*;
-use ringbuf::{HeapRb, traits::{Producer, Split}};
+use ringbuf::{
+    HeapRb,
+    traits::{Producer, Split},
+};
 use std::{path::PathBuf, thread::spawn};
-use self::threads::websocket_thread;
 
 #[cfg(target_os = "macos")]
 const DEFAULT_INPUT: &str = "BlackHole 2ch";
@@ -32,13 +34,12 @@ const DEFAULT_SR: i32 = 48000;
 // TODO: Handle multichannel stream based on user config
 const DEFAULT_CH: usize = 2;
 
-
 #[derive(Clone, Copy, Debug)]
 enum StreamType {
-  IceCast,
-  WebSocket
+    IceCast,
+    WebSocket,
+    Udp,
 }
-
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
@@ -51,7 +52,7 @@ fn main() -> anyhow::Result<()> {
         None => PathBuf::from(home).join("tau").join("recordings"),
     };
 
-    let stream_type = StreamType::WebSocket;
+    let stream_type = StreamType::Udp;
 
     let path = out_dir.join(filename.clone().to_string());
     if path.exists() {
@@ -67,8 +68,7 @@ fn main() -> anyhow::Result<()> {
 
     let host = cpal::default_host();
     let device = crate::audio::find_audio_device(&host, &config)?;
-    let (mut tx, rx) = HeapRb::<f32>::new(DEFAULT_SR as usize * 4)
-      .split();
+    let (mut tx, rx) = HeapRb::<f32>::new(DEFAULT_SR as usize * 4).split();
 
     match stream_type {
         StreamType::IceCast => {
@@ -82,13 +82,18 @@ fn main() -> anyhow::Result<()> {
                     crate::threads::icecast_rec_thread(icecast, rx, &out_dir, filename.clone())
                 }
             };
-        },
+        }
         StreamType::WebSocket => {
-          let port = config.port;
-          let url = config.url.clone();
-          let filename = filename.clone();
-          spawn(move || crate::threads::websocket_thread(rx, url, port, filename)
-          );
+            let port = config.port;
+            let url = config.url.clone();
+            let filename = filename.clone();
+            spawn(move || crate::threads::websocket_thread(rx, url, port, filename));
+        }
+        StreamType::Udp => {
+            let port = config.port;
+            let url = config.url.clone();
+            let filename = filename.clone();
+            spawn(move || crate::threads::udp_thread(rx, url, port, filename));
         }
     }
 
