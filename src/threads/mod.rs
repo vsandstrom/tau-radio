@@ -252,15 +252,11 @@ pub fn udp_thread(
         // true is used when realtime streaming is more important than stability.
         opus_frame_buffer.clear();
 
-        if let Some(page) = encoder.get_page(true) {
-          if let Err(e) = opus_tx.send(page.to_vec()) {
-            eprint!(
-                  " \
-            Could not append encoded ogg to shared \
-            ringbuffer to websocket thread: {e}"
-              );
-            exit(1);
-          }
+        if let Some(page) = encoder.get_page(true) 
+          && let Err(e) = opus_tx.send(page.to_vec()) {
+          eprint!( "Could not append encoded ogg to shared \
+                    ringbuffer to websocket thread: {e}");
+          exit(1);
         }
       }
     }
