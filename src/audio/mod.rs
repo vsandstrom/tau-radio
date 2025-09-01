@@ -2,8 +2,8 @@ use crate::config::Config;
 use crate::{AUDIO_INTERFACE_NOT_FOUND, DEFAULT_INPUT, err::default_not_found};
 
 use cpal::{
-  Device, Host,
-  traits::{DeviceTrait, HostTrait},
+    Device, Host,
+    traits::{DeviceTrait, HostTrait},
 };
 use shout::{ShoutConn, ShoutConnBuilder};
 
