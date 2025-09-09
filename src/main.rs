@@ -52,7 +52,7 @@ fn main() -> anyhow::Result<()> {
     None => PathBuf::from(home).join("tau").join("recordings"),
   };
 
-  let stream_type = StreamType::Udp;
+  let stream_type = StreamType::WebSocket;
 
   let path = out_dir.join(filename.clone().to_string());
   if path.exists() {
