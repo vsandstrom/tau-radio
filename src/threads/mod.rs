@@ -5,10 +5,9 @@ use std::{
     path::PathBuf,
     process::exit,
     sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, Ordering}, Arc, RwLock
     },
-    thread::{JoinHandle, sleep, spawn},
+    thread::{sleep, spawn, JoinHandle},
     time::Duration,
 };
 
@@ -16,7 +15,7 @@ use crossbeam::channel::{Receiver, bounded};
 use opusenc::{Comments, Encoder, RecommendedTag};
 use ringbuf::traits::Consumer;
 use shout::ShoutConn;
-use tungstenite::{Message, WebSocket, accept};
+use tungstenite::{accept_hdr,  http::{Request, Response}, Message, WebSocket};
 
 fn create_encoder(filename: &str) -> Encoder {
   Encoder::create_pull(
@@ -137,11 +136,11 @@ pub fn icecast_rec_thread(
 
 pub fn websocket_thread(
     mut rx: impl Consumer<Item = f32> + Send + 'static,
-    ip: String,
-    port: u16,
+    url: impl ToSocketAddrs,
     filename: Arc<String>,
+    remote_port: Arc<RwLock<Option<u16>>>
 ) -> JoinHandle<()> {
-  let server = match TcpListener::bind(format!("{ip}:{port}")) {
+  let server = match TcpListener::bind(url) {
     Ok(tcp) => tcp,
     Err(e) => {
         eprintln!("Unable to bind to address: {e}");
@@ -170,12 +169,11 @@ pub fn websocket_thread(
         encoder
           .write_float(&opus_frame_buffer)
           .expect("block not a multiple of input channels");
+        opus_frame_buffer.clear();
         // flush forces encoder to return a page, even if not ready.
         // true is used when realtime streaming is more important than stability.
-        opus_frame_buffer.clear();
         if let Some(page) = encoder.get_page(true) {
           // TODO: NO SOUND IS GETTING THROUGH HERE
-          println!("send");
           if let Err(e) = opus_tx.send(page.to_vec()) {
             eprint!(
                   " \
@@ -191,7 +189,22 @@ pub fn websocket_thread(
 
   for stream in server.incoming() {
     match stream {
-      Ok(s) => match accept(s) {
+      Ok(s) => match accept_hdr(s, |req: &Request<()>, res: Response<()>|  {
+        let port = req.headers()
+          .get("port")
+          .map(|h| 
+            h.to_str().unwrap().parse::<u16>().unwrap()
+          );
+        match remote_port.write() {
+          Ok(mut p) => *p = port,
+          Err(e) => {
+            eprintln!("Could not receive remote listening port: {e}");
+            exit(1)
+          }
+
+        }
+        Ok(res)
+      }) {
         Ok(mut ws) => {
           if connected.load(Ordering::SeqCst) {
             let _ = ws.close(None);
@@ -218,8 +231,7 @@ pub fn websocket_thread(
 
 pub fn udp_thread(
     mut rx: impl Consumer<Item = f32> + Send + 'static,
-    ip: String,
-    port: u16,
+    url: impl ToSocketAddrs + Send + 'static,
     filename: Arc<String>,
 ) -> JoinHandle<()> {
   let mut socket = match UdpSocket::bind("127.0.0.1:0") {
@@ -264,14 +276,13 @@ pub fn udp_thread(
 
   // UDP Thread
   spawn(move || {
-    handle_udpsocket(&mut socket, &opus_rx, format!("{ip}:{port}"));
+    handle_udpsocket(&mut socket, &opus_rx, &url);
   })
 }
 
-fn handle_udpsocket(udp: &mut UdpSocket, rx: &Receiver<Vec<u8>>, url: impl ToSocketAddrs) {
+fn handle_udpsocket(udp: &mut UdpSocket, rx: &Receiver<Vec<u8>>, url: &impl ToSocketAddrs) {
   loop {
     while let Ok(page) = rx.recv() {
-      println!("sending: {}", page.len());
       if let Err(e) = udp.send_to(&page, &url) {
         eprintln!("UDP socket send error: {e}");
         break;
@@ -283,7 +294,6 @@ fn handle_udpsocket(udp: &mut UdpSocket, rx: &Receiver<Vec<u8>>, url: impl ToSoc
 fn handle_websocket(ws: &mut WebSocket<TcpStream>, rx: &Receiver<Vec<u8>>) {
   loop {
     while let Ok(page) = rx.recv() {
-      println!("sending: {}", page.len());
       if let Err(e) = ws.send(Message::Binary(page.into())) {
         eprintln!("Websocket send error: {e}");
         break;

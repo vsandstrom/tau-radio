@@ -23,7 +23,9 @@ use ringbuf::{
   HeapRb,
   traits::{Producer, Split},
 };
-use std::{path::PathBuf, thread::spawn};
+use std::{net::{Ipv4Addr, SocketAddr}, path::PathBuf, str::FromStr, thread::spawn};
+use std::sync::{Arc, RwLock};
+use self::ui::print_connected_to_host;
 
 #[cfg(target_os = "macos")]
 const DEFAULT_INPUT: &str = "BlackHole 2ch";
@@ -69,6 +71,9 @@ fn main() -> anyhow::Result<()> {
   let host = cpal::default_host();
   let device = crate::audio::find_audio_device(&host, &config)?;
   let (mut tx, rx) = HeapRb::<f32>::new(DEFAULT_SR as usize * 4).split();
+  let remote_ip = Ipv4Addr::from_str(&config.url)?;
+  let remote_addr = SocketAddr::new(std::net::IpAddr::V4(remote_ip), config.port);
+  let remote_radio_port = Arc::new(RwLock::new(None::<u16>));
 
   match stream_type {
     StreamType::IceCast => {
@@ -84,16 +89,13 @@ fn main() -> anyhow::Result<()> {
       };
     }
     StreamType::WebSocket => {
-      let port = config.port;
-      let url = config.url.clone();
       let filename = filename.clone();
-      spawn(move || crate::threads::websocket_thread(rx, url, port, filename));
+      let port = remote_radio_port.clone();
+      spawn(move || crate::threads::websocket_thread(rx, remote_addr, filename, port));
     }
     StreamType::Udp => {
-      let port = config.port;
-      let url = config.url.clone();
       let filename = filename.clone();
-      spawn(move || crate::threads::udp_thread(rx, url, port, filename));
+      spawn(move || crate::threads::udp_thread(rx, remote_addr, filename));
     }
   }
 
@@ -122,11 +124,23 @@ fn main() -> anyhow::Result<()> {
   // Prints pretty message
   crate::ui::print_started_session_msg(
     config.audio_interface,
-    &config.url,
-    &config.port,
     &path,
     args.no_recording,
   );
+
+  while let Ok(p) = remote_radio_port.try_read() {
+    if p.is_some() {
+      let port = p.unwrap();
+      print_connected_to_host(
+        &config.url,
+        &port,
+      ); 
+      break;
+    } else {
+      std::thread::sleep(std::time::Duration::from_millis(100));
+
+    }
+  }
 
   loop {
     std::thread::sleep(std::time::Duration::from_secs(1));

@@ -4,18 +4,15 @@ use std::path::Path;
 
 pub fn print_started_session_msg(
   devname: String,
-  url: &String,
-  port: &u16,
   path: &Path,
   no_rec: bool,
 ) {
   println!(
     "\
-    \n{style_bold}{color_bright_yellow}Recording from: \
+    \n{style_bold}{color_bright_yellow}Streaming from: \
     \t{style_reset}{color_bright_cyan}{}{color_reset} \
-    \n{style_bold}{color_bright_yellow}Streaming live to: \
-    \t{color_bright_cyan}http://{}:{}/tau.ogg{color_reset}",
-    devname, url, port
+    ",
+    devname
   );
   if !no_rec {
     println!(
@@ -30,4 +27,16 @@ pub fn print_started_session_msg(
     );
   }
   println!("Press Ctrl+C to stop.");
+}
+
+pub fn print_connected_to_host(
+  url: &String,
+  port: &u16
+) {
+  println!(
+    "\
+    \n{style_bold}{color_bright_yellow}Streaming to: \
+    \t{color_bright_cyan}http://{}:{}/tau.ogg{color_reset}",
+    url, port
+  );
 }
