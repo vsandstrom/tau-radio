@@ -9,7 +9,7 @@ encoded in the same format as the stream itself. Currently the only option is
 
 To install:
 ```bash
-$ cargo install --git https://github.com/tau-org/
+$ cargo install --git https://github.com/tau-org/webradio
 ```
 
 The first time using the tool, it will search your system for a config file. 
