@@ -1659,7 +1659,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "tau"
+name = "tau-radio"
 version = "0.2.0"
 dependencies = [
  "anyhow",

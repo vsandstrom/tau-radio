@@ -1,9 +1,9 @@
 use crate::{Credentials, DEFAULT_CH};
 use std::{
-    net::{TcpListener, ToSocketAddrs, TcpStream},
+    net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener, TcpStream, ToSocketAddrs},
     process::exit,
     sync::{
-        atomic::{AtomicBool, Ordering}, Arc, mpsc::Sender
+        atomic::{AtomicBool, Ordering}, mpsc::Sender, Arc
     },
     thread::{sleep, spawn, JoinHandle},
     time::Duration,
@@ -17,16 +17,18 @@ use super::create_encoder;
 
 pub fn thread(
     mut rx: impl Consumer<Item = f32> + Send + 'static,
-    url: impl ToSocketAddrs,
+    url: SocketAddr,
     filename: Arc<String>,
     credentials: Credentials,
     remote_port: Sender<u16>//Arc<RwLock<Option<u16>>>
 ) -> JoinHandle<()> {
-  let server = match TcpListener::bind(url) {
+  let url = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), url.port());
+  let server = match TcpListener::bind(&url) {
     Ok(tcp) => tcp,
     Err(e) => {
-        eprintln!("Unable to bind to address: {e}");
-        exit(1)
+      eprintln!("Unable to bind to address: {e}");
+      dbg!(url);
+      exit(1)
     }
   };
   let framesize = 960 * DEFAULT_CH;
