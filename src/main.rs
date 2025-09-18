@@ -9,6 +9,7 @@ mod util;
 use crate::args::Args;
 use crate::config::Config;
 use crate::err::AUDIO_INTERFACE_NOT_FOUND;
+use crate::threads::{icecast, ws, udp};
 
 use clap::Parser;
 use cpal::{
@@ -24,8 +25,8 @@ use ringbuf::{
   traits::{Producer, Split},
 };
 use std::{net::{Ipv4Addr, SocketAddr}, path::PathBuf, str::FromStr, thread::spawn};
-use std::sync::{Arc, RwLock};
-use self::ui::print_connected_to_host;
+use std::sync::{mpsc, Arc, RwLock};
+use self::ui::print_connected_to_remote_host;
 
 #[cfg(target_os = "macos")]
 const DEFAULT_INPUT: &str = "BlackHole 2ch";
@@ -35,6 +36,12 @@ const DEFAULT_INPUT: &str = "pipewire";
 const DEFAULT_SR: i32 = 48000;
 // TODO: Handle multichannel stream based on user config
 const DEFAULT_CH: usize = 2;
+
+
+struct Credentials {
+  username: String,
+  password: String
+}
 
 #[derive(Clone, Copy, Debug)]
 enum StreamType {
@@ -73,7 +80,14 @@ fn main() -> anyhow::Result<()> {
   let (mut tx, rx) = HeapRb::<f32>::new(DEFAULT_SR as usize * 4).split();
   let remote_ip = Ipv4Addr::from_str(&config.url)?;
   let remote_addr = SocketAddr::new(std::net::IpAddr::V4(remote_ip), config.port);
+
   let remote_radio_port = Arc::new(RwLock::new(None::<u16>));
+  let (tx_port, rx_port) = mpsc::channel();
+
+  let creds: Credentials = Credentials { 
+    username: config.username.clone(), 
+    password: config.password.clone()
+  };
 
   match stream_type {
     StreamType::IceCast => {
@@ -82,20 +96,29 @@ fn main() -> anyhow::Result<()> {
       // TODO: Gracefully shut down
       let _ = {
         if args.no_recording {
-          crate::threads::icecast_thread(icecast, rx, filename.clone())
+          icecast::thread(icecast, rx, filename.clone())
         } else {
-          crate::threads::icecast_rec_thread(icecast, rx, &out_dir, filename.clone())
+          icecast::rec_thread(
+            icecast, rx, &out_dir, filename.clone())
         }
       };
     }
     StreamType::WebSocket => {
       let filename = filename.clone();
       let port = remote_radio_port.clone();
-      spawn(move || crate::threads::websocket_thread(rx, remote_addr, filename, port));
+      spawn(move || ws::thread(
+          rx,
+          remote_addr,
+          filename,
+          creds,
+          tx_port,
+          // port
+        )
+      );
     }
     StreamType::Udp => {
       let filename = filename.clone();
-      spawn(move || crate::threads::udp_thread(rx, remote_addr, filename));
+      spawn(move || udp::thread(rx, remote_addr, filename));
     }
   }
 
@@ -126,21 +149,11 @@ fn main() -> anyhow::Result<()> {
     config.audio_interface,
     &path,
     args.no_recording,
+    &config.url,
+    &config.port,
   );
 
-  while let Ok(p) = remote_radio_port.try_read() {
-    if p.is_some() {
-      let port = p.unwrap();
-      print_connected_to_host(
-        &config.url,
-        &port,
-      ); 
-      break;
-    } else {
-      std::thread::sleep(std::time::Duration::from_millis(100));
-
-    }
-  }
+  rx_port.recv().map(|port| { print_connected_to_remote_host(&config.url, &port, &config.mount) });
 
   loop {
     std::thread::sleep(std::time::Duration::from_secs(1));

@@ -6,13 +6,24 @@ pub fn print_started_session_msg(
   devname: String,
   path: &Path,
   no_rec: bool,
+  ip: &str,
+  port: &u16,
 ) {
   println!(
     "\
-    \n{style_bold}{color_bright_yellow}Streaming from: \
-    \t{style_reset}{color_bright_cyan}{}{color_reset} \
+    \n{style_bold}{color_bright_yellow}Listening to: \
+    \t\t\t{style_reset}{color_bright_cyan}{}{color_reset} \
     ",
     devname
+  );
+
+  println!(
+    "\
+    {style_bold}{color_bright_yellow}Broadcasting to: \
+    \t\t{style_reset}{color_bright_cyan}{}:{} \
+    ",
+    ip,
+    port,
   );
   if !no_rec {
     println!(
@@ -26,17 +37,17 @@ pub fn print_started_session_msg(
       is disabled.{style_reset}{color_reset}"
     );
   }
-  println!("Press Ctrl+C to stop.");
 }
 
-pub fn print_connected_to_host(
-  url: &String,
-  port: &u16
-) {
+
+pub fn print_connected_to_remote_host(
+  url: &String, port: &u16, mount: &str
+  ) {
   println!(
     "\
-    \n{style_bold}{color_bright_yellow}Streaming to: \
-    \t{color_bright_cyan}http://{}:{}/tau.ogg{color_reset}",
-    url, port
+    \n{style_bold}{color_bright_yellow}Connection established on: \
+    \t{color_bright_cyan}http://{}:{}/{}{color_reset}",
+    url, port, mount
   );
+  println!("Press Ctrl+C to stop.");
 }
