@@ -8,7 +8,8 @@ use crate::args::validate_port;
 pub struct Config {
     pub username: String,
     pub password: String,
-    pub url: String,
+    pub ip: String,
+    pub broadcast_port: u16,
     pub port: u16,
     pub mount: String,
     pub audio_interface: String,
@@ -56,7 +57,7 @@ impl Config {
       self.password = pw.to_string();
     }
     if let Some(u) = &args.url {
-      self.url = u.to_string();
+      self.ip = u.to_string();
     }
     if let Some(p) = args.port {
       self.port = p;
@@ -89,7 +90,7 @@ impl Config {
         "No config found at '{}'. Let's create one: ",
         path.display()
       );
-      println!("Credentials must correspond to what is set in icecast.xml");
+      println!("Credentials must correspond to broadcast server config");
       let username: String = Input::new()
         .with_prompt("Username")
         .interact_text()
@@ -100,20 +101,6 @@ impl Config {
         .interact()
         .map_err(|e| TauConfigError::Input(e.to_string()))?;
 
-      let url: String = Input::new()
-        .with_prompt("Icecast URL")
-        .default("127.0.0.1".to_string())
-        .interact_text()
-        .map_err(|e| TauConfigError::Input(e.to_string()))
-        .and_then(crate::args::validate_ip)?;
-      //   |url| {
-      //
-      //     if !is_ip(&url) {
-      //         return Err(TauConfigError::InvalidIp(url));
-      //     }
-      //     Ok(url)
-      // })?;
-
       let port: u16 = Input::new()
         .with_prompt("Port")
         .default(8000)
@@ -121,8 +108,22 @@ impl Config {
         .map_err(|e| TauConfigError::Input(e.to_string()))
         .and_then(validate_port)?;
 
+      let ip: String = Input::new()
+        .with_prompt("Broadcast IP")
+        .default("127.0.0.1".to_string())
+        .interact_text()
+        .map_err(|e| TauConfigError::Input(e.to_string()))
+        .and_then(crate::args::validate_ip)?;
+      
+      let broadcast_port: u16 = Input::new()
+        .with_prompt("Broadcast Port")
+        .default(8000)
+        .interact_text()
+        .map_err(|e| TauConfigError::Input(e.to_string()))
+        .and_then(validate_port)?;
+
       let mount = Input::new()
-        .with_prompt("Icecast mount point")
+        .with_prompt("Broadcast mount point")
         .default("tau.ogg".into())
         .interact_text()
         .map_err(|e| TauConfigError::Input(e.to_string()))?;
@@ -142,8 +143,9 @@ impl Config {
       let config = Config {
         username,
         password,
-        url,
+        ip,
         port,
+        broadcast_port,
         mount,
         audio_interface,
         file: if file.trim().is_empty() {

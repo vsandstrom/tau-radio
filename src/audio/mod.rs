@@ -9,7 +9,7 @@ use shout::{ShoutConn, ShoutConnBuilder};
 
 pub fn create_icecast_connection(config: Config) -> anyhow::Result<ShoutConn> {
   match ShoutConnBuilder::new()
-    .host(config.url.clone())
+    .host(config.ip.clone())
     .port(config.port)
     .user(config.username.clone())
     .password(config.password.clone())

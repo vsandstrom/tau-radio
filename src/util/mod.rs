@@ -11,3 +11,22 @@ pub fn format_filename(filename: Option<String>) -> Arc<String> {
       .unwrap_or_else(|| format!("tau_{}.ogg", now)),
   )
 }
+
+#[derive(Clone)]
+pub struct Headers {pub headers: Option<Vec<Vec<u8>>>}
+
+impl Headers {
+  pub fn prepare_headers(&mut self, buf: &Vec<Vec<u8>>) {
+    self.headers = Some(vec![buf[0].to_vec(), buf[1].to_vec()]);
+  }
+}
+
+pub fn validate_bos_and_tags(data: &[u8]) -> core::result::Result<&[u8], ()> {
+  let n_segs = data[26] as usize;
+  let offset = 27+n_segs;
+  if data.len() < 27 + 8 { return Err(()) }
+  if matches!(&data[offset..offset+8], b"OpusTags" | b"OpusHead") {
+    return Ok(data);
+  }
+  Err(())
+}

@@ -12,7 +12,7 @@ pub fn print_started_session_msg(
   println!(
     "\
     \n{style_bold}{color_bright_yellow}Listening to: \
-    \t\t\t{style_reset}{color_bright_cyan}{}{color_reset} \
+    \t\t{style_reset}{color_bright_cyan}{}{color_reset} \
     ",
     devname
   );
@@ -20,7 +20,7 @@ pub fn print_started_session_msg(
   println!(
     "\
     {style_bold}{color_bright_yellow}Broadcasting to: \
-    \t\t{style_reset}{color_bright_cyan}{}:{} \
+    \t{style_reset}{color_bright_cyan}{}:{} \
     ",
     ip,
     port,
@@ -33,10 +33,10 @@ pub fn print_started_session_msg(
     );
   } else {
     println!(
-      "{color_red}{style_bold}Local recording \
-      is disabled.{style_reset}{color_reset}"
+      "{color_red}{style_bold}Local recording is disabled.{style_reset}{color_reset}"
     );
   }
+  println!("Press Ctrl+C to stop.");
 }
 
 
@@ -49,5 +49,4 @@ pub fn print_connected_to_remote_host(
     \t{color_bright_cyan}http://{}:{}/{}{color_reset}",
     url, port, mount
   );
-  println!("Press Ctrl+C to stop.");
 }
