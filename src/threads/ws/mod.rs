@@ -175,14 +175,15 @@ fn websocket_connect_loop(shutdown: Arc<AtomicBool>, opus_rx: &Receiver<Vec<u8>>
     .build()
     .unwrap();
 
+  let request = ClientRequestBuilder::new(uri.clone())
+    .with_header("password", credentials.password.clone())
+    .with_header("username", credentials.username.clone())
+    .with_header("port", credentials.broadcast_port.to_string());
+
   loop {
     if shutdown.load(Ordering::SeqCst) { break; }
     if !connected.load(Ordering::SeqCst) {
-      let request = ClientRequestBuilder::new(uri.clone())
-        .with_header("password", credentials.password.clone())
-        .with_header("username", credentials.username.clone())
-        .with_header("port", credentials.broadcast_port.to_string());
-      match connect(request) {
+      match connect(request.clone()) {
         Ok((mut ws, _)) => {
           connected.store(true, Ordering::SeqCst);
           let connected_inner = connected.clone();

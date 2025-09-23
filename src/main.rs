@@ -61,7 +61,7 @@ fn main() -> anyhow::Result<()> {
     Some(p) => PathBuf::from(p),
     None => PathBuf::from(home).join("tau").join("recordings"),
   };
-  
+
   let shutdown: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
   let shutdown_clone = shutdown.clone();
   // set_handler(move || {

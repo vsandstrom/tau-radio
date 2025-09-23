@@ -5,9 +5,9 @@ use crate::config::TauConfigError;
 use is_ip::is_ip;
 
 #[derive(Parser)]
-#[command(name = "Tau")]
-#[command(version = "0.0.1")]
-#[command( about = "Hijacks chosen audio device, encodes audio into Ogg Opus and streams to IceCast server")]
+#[command(name = "tau-radio")]
+#[command(version = env!("CARGO_PKG_VERSION"))]
+#[command( about = "Hijacks chosen audio device, encodes audio into Ogg Opus and streams to webradio server [tau-tower]")]
 pub(crate) struct Args {
     /// IceCast server username
     #[arg(long)]
@@ -27,9 +27,6 @@ pub(crate) struct Args {
     })]
     pub port: Option<u16>,
 
-    #[arg(short, long)]
-    pub mount: Option<String>,
-
     /// Optional custom filename of local copy
     #[arg(short, long)]
     pub file: Option<String>,
@@ -38,9 +35,11 @@ pub(crate) struct Args {
     #[arg(long)]
     pub no_recording: bool,
 
+    /// Output directory [default: $HOME/tau/recordings/]
     #[arg(short, long)]
     pub output: Option<String>,
 
+    /// Resets config.toml 
     #[arg(long)]
     pub reset_config: bool,
     // #[arg(long, value_parser=validate_stream_type)]
