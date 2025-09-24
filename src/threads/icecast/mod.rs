@@ -1,4 +1,5 @@
 use crate::DEFAULT_CH;
+use crate::Config;
 
 use std::{
     path::PathBuf,
@@ -8,7 +9,7 @@ use std::{
 };
 
 use ringbuf::traits::Consumer;
-use shout::ShoutConn;
+use shout::{ShoutConn, ShoutConnBuilder};
 use super::{create_encoder, create_recorder};
 
 /// Spawns a thread producing a continuous stream to IceCast host,
@@ -95,4 +96,22 @@ pub fn rec_thread(
       }
     }
   })
+}
+
+pub fn create_icecast_connection(config: Config) -> anyhow::Result<ShoutConn> {
+  match ShoutConnBuilder::new()
+    .host(config.ip.clone())
+    .port(config.port)
+    .user(config.username.clone())
+    .password(config.password.clone())
+    .mount(config.mount)
+    .protocol(shout::ShoutProtocol::HTTP)
+    .format(shout::ShoutFormat::Ogg)
+    .build()
+  {
+    Ok(shout) => Ok(shout),
+    Err(e) => Err(anyhow::anyhow!(
+      "Could not connect to the IceCast host: {e:?}"
+    )),
+  }
 }

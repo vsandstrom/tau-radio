@@ -11,10 +11,8 @@ pub struct Config {
     pub ip: String,
     pub broadcast_port: u16,
     pub port: u16,
-    pub mount: String,
     pub audio_interface: String,
     pub file: Option<String>,
-    // pub no_recording: bool
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -50,24 +48,11 @@ impl Config {
 
   /// Merges local config.toml with current CLI arguments if there are any.
   pub fn merge_cli_args(mut self, args: &crate::args::Args) -> Self {
-    if let Some(un) = &args.username {
-      self.username = un.to_string();
-    }
-    if let Some(pw) = &args.password {
-      self.password = pw.to_string();
-    }
-    if let Some(u) = &args.url {
-      self.ip = u.to_string();
-    }
-    if let Some(p) = args.port {
-      self.port = p;
-    }
-    if let Some(m) = &args.mount {
-      self.mount = m.to_string();
-    }
-    if let Some(f) = &args.file {
-      self.file = Some(f.to_string());
-    }
+    if let Some(un) = &args.username {self.username = un.to_string()}
+    if let Some(pw) = &args.password {self.password = pw.to_string()}
+    if let Some(u)  = &args.url      {self.ip       = u.to_string()}
+    if let Some(p)      = args.port      {self.port     = p}
+    if let Some(f)  = &args.file     {self.file     = Some(f.to_string())}
     self
   }
 
@@ -122,12 +107,6 @@ impl Config {
         .map_err(|e| TauConfigError::Input(e.to_string()))
         .and_then(validate_port)?;
 
-      let mount = Input::new()
-        .with_prompt("Broadcast mount point")
-        .default("tau.ogg".into())
-        .interact_text()
-        .map_err(|e| TauConfigError::Input(e.to_string()))?;
-
       let audio_interface = Input::new()
         .with_prompt("Audio Interface")
         .default(crate::DEFAULT_INPUT.to_string())
@@ -146,7 +125,6 @@ impl Config {
         ip,
         port,
         broadcast_port,
-        mount,
         audio_interface,
         file: if file.trim().is_empty() {
           None

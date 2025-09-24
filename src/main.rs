@@ -1,3 +1,5 @@
+#![deny(unused_extern_crates)]
+
 mod args;
 mod audio;
 mod config;
@@ -9,7 +11,7 @@ mod util;
 use crate::args::Args;
 use crate::config::Config;
 use crate::err::AUDIO_INTERFACE_NOT_FOUND;
-use crate::threads::{icecast, ws, udp};
+use crate::threads::ws;
 
 use clap::Parser;
 use cpal::{
@@ -23,10 +25,15 @@ use ringbuf::{
   HeapRb,
   traits::{Producer, Split},
 };
-use std::{net::{Ipv4Addr, SocketAddr}, path::PathBuf, str::FromStr, thread::spawn};
-use std::sync::{Arc, RwLock};
+use std::{
+  net::{Ipv4Addr, SocketAddr},
+  path::PathBuf,
+  str::FromStr,
+  sync::{atomic::{AtomicBool, Ordering}, Arc},
+  thread::spawn
+};
+
 use ctrlc::set_handler;
-use crossbeam::channel::bounded;
 
 #[cfg(target_os = "macos")]
 const DEFAULT_INPUT: &str = "BlackHole 2ch";
@@ -55,6 +62,12 @@ fn main() -> anyhow::Result<()> {
     None => PathBuf::from(home).join("tau").join("recordings"),
   };
 
+  let shutdown: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
+  let shutdown_clone = shutdown.clone();
+  // set_handler(move || {
+  //   shutdown_clone.store(false, Ordering::SeqCst);
+  // }).expect("error setting ctrl-c handler");
+
   let path = out_dir.join(filename.clone().to_string());
   if path.exists() {
     return Err(anyhow::anyhow!(
@@ -73,26 +86,18 @@ fn main() -> anyhow::Result<()> {
   let remote_ip = Ipv4Addr::from_str(&config.ip)?;
   let remote_addr = SocketAddr::new(std::net::IpAddr::V4(remote_ip), config.port);
 
-  let remote_radio_port = Arc::new(RwLock::new(None::<u16>));
-  let (tx_shutdown, rx_shutdown) = bounded(2);
-  let rx_shutdown_clone = rx_shutdown.clone();
-
-  set_handler(move || {
-    tx_shutdown.send(()).unwrap()
-  });
-
   let creds: Credentials = Credentials { 
     username: config.username.clone(), 
     password: config.password.clone(),
     broadcast_port: config.broadcast_port
   };
 
-
   let filename = filename.clone();
+  let shutdown_clone = shutdown.clone();
   if args.no_recording {
-    spawn(move || ws::thread( rx, remote_addr, filename, creds, rx_shutdown));
+    spawn(move || ws::thread( rx, remote_addr, filename, creds, shutdown_clone));
   } else {
-    spawn(move || ws::rec_thread( rx, remote_addr, &out_dir, filename, creds, rx_shutdown));
+    spawn(move || ws::rec_thread( rx, remote_addr, &out_dir, filename, creds, shutdown_clone));
   }
 
   let requested_config = StreamConfig {
@@ -105,7 +110,7 @@ fn main() -> anyhow::Result<()> {
     .build_input_stream(
       &requested_config,
       move |buf, _info| {
-        let _ = tx.push_slice(buf);
+        tx.push_slice(buf);
       },
       |e| {
         eprintln!("{e}");
@@ -126,9 +131,11 @@ fn main() -> anyhow::Result<()> {
     &config.port,
   );
 
-  let rx_shutdown_clone = rx_shutdown_clone.clone();
+  
+
   loop {
-    if rx_shutdown_clone.try_recv().is_ok() { return Ok(()) }
+    if shutdown.load(Ordering::SeqCst) { return Ok(()) }
     std::thread::sleep(std::time::Duration::from_millis(100));
   }
+
 }
