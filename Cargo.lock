@@ -1659,24 +1659,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
 
 [[package]]
-name = "shout"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da52815e30470d826ffd393735c3a179fc8e5b965a2210c4c66dcf66960faec7"
-dependencies = [
- "shout-sys",
-]
-
-[[package]]
-name = "shout-sys"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b68fb7f29ef17f9b5cdaa7e224e5464606b0709f48e916b1678327146a26535"
-dependencies = [
- "libc",
-]
-
-[[package]]
 name = "strsim"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1711,7 +1693,6 @@ dependencies = [
  "regex",
  "ringbuf",
  "serde",
- "shout",
  "thiserror 2.0.16",
  "toml",
  "tungstenite",
