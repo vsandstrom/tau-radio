@@ -10,7 +10,6 @@ clap = { version = "4.5.42", features = ["derive"] }
 config = "0.15.13"
 cpal = { version = "0.16.0", features = ["asio", "jack", "wasm-bindgen"] }
 crossbeam = "0.8.4"
-ctrlc = "3.5.0"
 dialoguer = "0.11.0"
 inline_colorization = "0.1.6"
 is-ip = "0.1.0"
