@@ -1,5 +1,4 @@
 #![deny(unused_extern_crates)]
-
 mod args;
 mod audio;
 mod config;
@@ -33,8 +32,6 @@ use std::{
   thread::spawn
 };
 
-use ctrlc::set_handler;
-
 #[cfg(target_os = "macos")]
 const DEFAULT_INPUT: &str = "BlackHole 2ch";
 #[cfg(target_os = "linux")]
@@ -63,10 +60,6 @@ fn main() -> anyhow::Result<()> {
   };
 
   let shutdown: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
-  let shutdown_clone = shutdown.clone();
-  // set_handler(move || {
-  //   shutdown_clone.store(false, Ordering::SeqCst);
-  // }).expect("error setting ctrl-c handler");
 
   let path = out_dir.join(filename.clone().to_string());
   if path.exists() {
