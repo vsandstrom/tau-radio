@@ -23,7 +23,7 @@ $ $HOME/.config/tau/config.toml
 
 If there is no config file located there, you will be prompted to create one. 
 
-[![asciicast](https://asciinema.org/a/RxokdZfrGrOcx143FQRiKbV2r.svg)](https://asciinema.org/a/RxokdZfrGrOcx143FQRiKbV2r)
+[![asciicast](https://asciinema.org/a/2lXsKE2jRhdfQ8r2OEoDHk8fF.svg)](https://asciinema.org/a/2lXsKE2jRhdfQ8r2OEoDHk8fF)
 
 
 If you want to temporarily overwrite the config, you are able to pass arguments.
