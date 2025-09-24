@@ -1,5 +1,5 @@
 {
-  description = "Tau webradio Nix flake";
+  description = "Tau webradio client - Nix flake";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
