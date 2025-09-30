@@ -10,17 +10,28 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
-
+  build-linux:
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v4
     - name: Install audio dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y libjack-dev libasound2-dev libpipewire-0.3-dev pkg-config
+        sudo apt-get install -y \
+        libjack-dev libasound2-dev libpipewire-0.3-dev \
+        libopus-dev libogg-dev opus-tools \
+        pkg-config
     - name: Build
       run: cargo build --verbose
     - name: Run tests
       run: cargo test --verbose
+      
+  build-macos:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Build
+      run: cargo build --verbose
+    - name: Run tests
+      run: cargo test --verbose
+    
