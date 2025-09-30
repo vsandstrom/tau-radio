@@ -22,7 +22,6 @@ jobs:
         autoconf automake libtool pkg-config \
         libjack-dev libasound2-dev libpipewire-0.3-dev \
         libopus-dev libogg-dev libopusfile-dev libopusenc-dev \
-        opus-tools
 
     - name: Build
       run: cargo build --verbose
