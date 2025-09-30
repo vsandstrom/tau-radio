@@ -1,0 +1,56 @@
+name: Rust
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install audio dependencies
+      run: |
+        sudo apt-get update 
+        sudo apt-get install -y \
+        build-essential \
+        autoconf automake libtool pkg-config \
+        libjack-dev libasound2-dev libpipewire-0.3-dev \
+        libopus-dev libogg-dev libopusfile-dev libopusenc-dev \
+        opus-tools
+
+    - name: Build
+      run: cargo build --verbose
+    - name: Run tests
+      run: cargo test --verbose
+      
+  build-macos:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install audio & codec dependencies (macOS)
+      run: |
+        brew install opus libogg opus-tools libshout pkg-config
+    - name: Build
+      run: cargo build --verbose
+    - name: Run tests
+      run: cargo test --verbose
+
+  build-nix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Build with Nix
+        run: nix build
