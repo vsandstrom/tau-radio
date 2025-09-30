@@ -38,15 +38,3 @@ pub fn print_started_session_msg(
   }
   println!("Press Ctrl+C to stop.");
 }
-
-
-pub fn print_connected_to_remote_host(
-  url: &String, port: &u16, mount: &str
-  ) {
-  println!(
-    "\
-    \n{style_bold}{color_bright_yellow}Connection established on: \
-    \t{color_bright_cyan}http://{}:{}/{}{color_reset}",
-    url, port, mount
-  );
-}

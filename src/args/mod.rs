@@ -9,19 +9,19 @@ use is_ip::is_ip;
 #[command(version = env!("CARGO_PKG_VERSION"))]
 #[command( about = "Hijacks chosen audio device, encodes audio into Ogg Opus and streams to webradio server [tau-tower]")]
 pub(crate) struct Args {
-    /// IceCast server username
+    /// Webradio server username
     #[arg(long)]
     pub username: Option<String>,
 
-    /// IceCast server password
+    /// Webradio server password
     #[arg(long)]
     pub password: Option<String>,
 
-    /// IceCast server URL
+    /// Tau-tower server ip
     #[arg(short, long, value_parser=|s: &str| validate_ip(s.to_string()))]
-    pub url: Option<String>,
+    pub ip: Option<String>,
 
-    /// IceCast server port
+    /// Tau-tower server port
     #[arg(short, long, value_parser=|p: &str| {
       validate_port(parse_port(p).unwrap())
     })]
@@ -42,15 +42,13 @@ pub(crate) struct Args {
     /// Resets config.toml 
     #[arg(long)]
     pub reset_config: bool,
-    // #[arg(long, value_parser=validate_stream_type)]
-    // pub stream_mode: crate::StreamType
 }
 
-pub fn validate_ip(url: String) -> Result<String, TauConfigError> {
-  if !is_ip(&url) {
-    return Err(TauConfigError::InvalidIp(url));
+pub fn validate_ip(ip: String) -> Result<String, TauConfigError> {
+  if !is_ip(&ip) {
+    return Err(TauConfigError::InvalidIp(ip));
   }
-  Ok(url)
+  Ok(ip)
 }
 
 fn parse_port(p: &str) -> Result<u16, TauConfigError> {
