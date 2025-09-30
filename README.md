@@ -46,6 +46,10 @@ $ brew install opus libopusenc libogg libshout
 **On Linux** (using apt):
 ```bash
 $ sudo apt update
-$ sudo apt install libopus-dev libopusenc-dev libogg-dev libshout-dev
+$ sudo apt install \
+  build-essential autoconf automake libtool pkg-config \
+  libjack-dev libasound2-dev libpipewire-0.3-dev \
+  libopus-dev libopusenc-dev libopusfile-dev opus-tools \
+  libogg-dev libshout-dev
 ```
 
