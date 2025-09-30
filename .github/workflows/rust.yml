@@ -14,7 +14,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - name: Install audio dependencies
+    
+    - name: Cache Rust dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
+
+    - name: Install audio dependencies  
       run: |
         sudo apt-get update 
         sudo apt-get install -y \
@@ -22,8 +34,10 @@ jobs:
         autoconf automake libtool pkg-config \
         libjack-dev libasound2-dev libpipewire-0.3-dev \
         libopus-dev libogg-dev libopusfile-dev libopusenc-dev 
+    
     - name: Build
       run: cargo build --verbose
+    
     - name: Run tests
       run: cargo test --verbose
       
@@ -31,11 +45,25 @@ jobs:
     runs-on: macos-latest
     steps:
     - uses: actions/checkout@v4
+    
+    - name: Cache Rust dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
+
     - name: Install audio & codec dependencies (macOS)
       run: |
         brew install opus libogg opus-tools libshout pkg-config
+    
     - name: Build
       run: cargo build --verbose
+    
     - name: Run tests
       run: cargo test --verbose
 
