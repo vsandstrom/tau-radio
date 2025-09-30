@@ -18,16 +18,12 @@ jobs:
       run: |
         sudo apt-get update 
         sudo apt-get install -y \
+        build-essential \
+        autoconf automake libtool pkg-config \
         libjack-dev libasound2-dev libpipewire-0.3-dev \
-        libopus-dev libogg-dev opus-tools \
-        pkg-config
-        git clone https://github.com/xiph/opus-tools.git
-        cd opus-tools
-        ./autogen.sh
-        ./configure
-        make
-        sudo make install
-        cd ..
+        libopus-dev libogg-dev libopusfile-dev \
+        opus-tools
+
     - name: Build
       run: cargo build --verbose
     - name: Run tests
