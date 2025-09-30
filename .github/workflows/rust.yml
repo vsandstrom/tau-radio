@@ -21,6 +21,13 @@ jobs:
         libjack-dev libasound2-dev libpipewire-0.3-dev \
         libopus-dev libogg-dev opus-tools \
         pkg-config
+        git clone https://github.com/xiph/opus-tools.git
+        cd opus-tools
+        ./autogen.sh
+        ./configure
+        make
+        sudo make install
+        cd ..
     - name: Build
       run: cargo build --verbose
     - name: Run tests
