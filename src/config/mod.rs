@@ -1,6 +1,7 @@
 use dialoguer::{Input, Password};
 use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf};
+use inline_colorization::*;
 
 use crate::args::validate_port;
 
@@ -9,8 +10,8 @@ pub struct Config {
     pub username: String,
     pub password: String,
     pub ip: String,
-    pub broadcast_port: u16,
     pub port: u16,
+    pub broadcast_port: u16,
     pub audio_interface: String,
     pub file: Option<String>,
 }
@@ -50,7 +51,7 @@ impl Config {
   pub fn merge_cli_args(mut self, args: &crate::args::Args) -> Self {
     if let Some(un) = &args.username {self.username = un.to_string()}
     if let Some(pw) = &args.password {self.password = pw.to_string()}
-    if let Some(u)  = &args.url      {self.ip       = u.to_string()}
+    if let Some(u)  = &args.ip       {self.ip       = u.to_string()}
     if let Some(p)      = args.port      {self.port     = p}
     if let Some(f)  = &args.file     {self.file     = Some(f.to_string())}
     self
@@ -72,49 +73,49 @@ impl Config {
       Self::load_config(&path)
     } else {
       println!(
-        "No config found at '{}'. Let's create one: ",
+        "\n{color_bright_yellow}No config found at '{}'. Let's create one: {color_reset}",
         path.display()
       );
-      println!("Credentials must correspond to broadcast server config");
+      println!("{color_bright_red}Credentials must correspond to broadcast server stream config{color_reset}\n");
       let username: String = Input::new()
-        .with_prompt("Username")
+        .with_prompt(format!("{color_bright_yellow}Username{color_reset}"))
         .interact_text()
         .map_err(|e| TauConfigError::Input(e.to_string()))?;
 
       let password: String = Password::new()
-        .with_prompt("Password")
+        .with_prompt(format!("{color_bright_yellow}Password{color_reset}"))
         .interact()
         .map_err(|e| TauConfigError::Input(e.to_string()))?;
+      
+      let ip: String = Input::new()
+        .with_prompt(format!("{color_bright_yellow}Broadcast IP{color_reset}"))
+        .default("127.0.0.1".to_string())
+        .interact_text()
+        .map_err(|e| TauConfigError::Input(e.to_string()))
+        .and_then(crate::args::validate_ip)?;
 
       let port: u16 = Input::new()
-        .with_prompt("Port")
+        .with_prompt(format!("{color_bright_yellow}Local Stream Port{color_reset}"))
         .default(8000)
         .interact_text()
         .map_err(|e| TauConfigError::Input(e.to_string()))
         .and_then(validate_port)?;
 
-      let ip: String = Input::new()
-        .with_prompt("Broadcast IP")
-        .default("127.0.0.1".to_string())
-        .interact_text()
-        .map_err(|e| TauConfigError::Input(e.to_string()))
-        .and_then(crate::args::validate_ip)?;
-      
       let broadcast_port: u16 = Input::new()
-        .with_prompt("Broadcast Port")
+        .with_prompt(format!("{color_bright_yellow}Remote Broadcast port{color_reset}"))
         .default(8000)
         .interact_text()
         .map_err(|e| TauConfigError::Input(e.to_string()))
         .and_then(validate_port)?;
 
       let audio_interface = Input::new()
-        .with_prompt("Audio Interface")
+        .with_prompt(format!("{color_bright_yellow}Audio Interface{color_reset}"))
         .default(crate::DEFAULT_INPUT.to_string())
         .interact_text()
         .map_err(|e| TauConfigError::Input(e.to_string()))?;
 
       let file: String = Input::new()
-        .with_prompt("Filename (leave empty for 'tau_[timestamp].ogg')")
+        .with_prompt(format!("{color_bright_yellow}Filename (leave empty for 'tau_[timestamp].ogg'){color_reset}"))
         .allow_empty(true)
         .interact()
         .map_err(|e| TauConfigError::Input(e.to_string()))?;
@@ -139,7 +140,9 @@ impl Config {
 
       let toml_string = toml::to_string_pretty(&config).unwrap();
       fs::write(&path, toml_string)?;
-
+      println!("\
+        \n{color_bright_yellow}A config file has been written to:{color_reset}\n\t\
+        {color_bright_red}{}{color_reset}\n", path.display());
       Ok(config)
     }
   }

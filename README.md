@@ -30,7 +30,7 @@ If you want to temporarily overwrite the config, you are able to pass arguments.
 
 ```bash
 # Ex: Uses temporary credentials, and disables the local recording. 
-$ tau \
+$ tau-radio \
   --username <username> \
   --password <password> \
   --no-recording
