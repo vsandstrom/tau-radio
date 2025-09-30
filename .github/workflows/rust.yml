@@ -78,5 +78,21 @@ jobs:
           extra_nix_config: |
             experimental-features = nix-command flakes
 
+      - name: Cache Nix store
+        uses: actions/cache@v4
+        with:
+          path: /nix/store
+          key: ${{ runner.os }}-nix-${{ hashFiles('flake.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-nix-
+
+      - name: Cache Nix DB
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/nix
+          key: ${{ runner.os }}-nixcache-${{ hashFiles('flake.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-nixcache-
+
       - name: Build with Nix
         run: nix build
