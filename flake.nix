@@ -16,10 +16,12 @@
           jack2
           alsa-lib
         ] else [];
+        src = craneLib.cleanCargoSource ./.;
+        cargoArtifacts = craneLib.vendorCargoDeps { inherit src; };
       in 
     {
       packages.default = craneLib.buildPackage {
-        src = craneLib.cleanCargoSource ./.;
+        inherit src cargoArtifacts;
 
         nativeBuildInputs = with pkgs; [
           pkg-config
