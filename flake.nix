@@ -28,7 +28,7 @@
 
         buildInputs = with pkgs; [
           libshout
-          # libopusenc
+          libopusenc
           libopus
           libogg
         ] ++ linuxDeps;
