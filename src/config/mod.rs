@@ -103,7 +103,7 @@ impl Config {
 
       let broadcast_port: u16 = Input::new()
         .with_prompt(format!("{color_bright_yellow}Remote Broadcast port{color_reset}"))
-        .default(8000)
+        .default(8001)
         .interact_text()
         .map_err(|e| TauConfigError::Input(e.to_string()))
         .and_then(validate_port)?;

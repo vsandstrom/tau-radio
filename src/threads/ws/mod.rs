@@ -1,13 +1,15 @@
-use crate::{threads::create_recorder, Credentials, DEFAULT_CH};
+use crate::{Credentials, DEFAULT_CH};
 use std::{
-    net::{SocketAddr, TcpStream}, path::{Path, PathBuf}, sync::{atomic::{AtomicBool, Ordering}, Arc}, thread::{sleep, spawn}, time::Duration
+    net::{SocketAddr, TcpStream}, 
+    path::Path,
+    sync::{atomic::{AtomicBool, Ordering}, Arc},
+    thread::{sleep, spawn}
 };
 
-use crossbeam::channel::{Receiver, bounded, Sender};
+use crossbeam::channel::{Receiver, bounded};
 use ringbuf::traits::Consumer;
 use tungstenite::{connect, http::Uri, stream::MaybeTlsStream, ClientRequestBuilder, Message, WebSocket};
-
-use super::create_encoder;
+use crate::audio::{audio_capture_loop, encode_audio, record_audio};
 
 pub fn thread(
     mut rx: impl Consumer<Item = f32> + Send + 'static,
@@ -89,82 +91,6 @@ fn handle_websocket(shutdown: Arc<AtomicBool>, ws: &mut WebSocket<MaybeTlsStream
   }
 }
 
-fn record_audio(
-  shutdown: Arc<AtomicBool>,
-  filename: Arc<String>,
-  in_rx: &Receiver<f32>,
-  path: &PathBuf,
-  framesize: usize
-) {
-  let mut encoder = create_recorder(path, &filename);
-  let mut buf = Vec::with_capacity(framesize);
-  loop {
-    if shutdown.load(Ordering::SeqCst) { break; }
-    if let Ok(sample) = in_rx.recv() {
-      buf.push(sample);
-    }
-    if buf.len() == framesize {
-      encoder
-        .write_float(&buf)
-        .expect("block not a multiple of input channels");
-      buf.clear();
-    }
-  }
-}
-
-fn encode_audio(
-  shutdown: Arc<AtomicBool>,
-  filename: Arc<String>,
-  in_rx: &Receiver<f32>,
-  opus_tx: &Sender<Vec<u8>>,
-  framesize: usize
-) {
-  let mut encoder = create_encoder(&filename);
-  let mut buf = Vec::with_capacity(framesize);
-  loop {
-    if shutdown.load(Ordering::SeqCst) { break; }
-    if let Ok(sample) = in_rx.recv() {
-      buf.push(sample);
-    }
-    if buf.len() == framesize {
-      encoder
-        .write_float(&buf)
-        .expect("block not a multiple of input channels");
-      buf.clear();
-      // flush forces encoder to return a page, even if not ready.
-      // true is used when realtime streaming is more important than stability.
-      if let Some(page) = encoder.get_page(true) {
-        // TODO: NO SOUND IS GETTING THROUGH HERE
-        if let Err(e) = opus_tx.send(page.to_vec()) {
-          eprint!(
-                " \
-          Could not append encoded ogg to shared \
-          ringbuffer to websocket thread: {e}"
-          );
-          break;
-          // exit(1);
-        }
-      }
-    }
-  }
-}
-
-
-/// Fans out the audio stream to (optional) multiple consumers - Broadcast style!
-fn audio_capture_loop(shutdown: Arc<AtomicBool>, producer: &mut (impl Consumer<Item = f32> + Send + 'static), consumers: &[Sender<f32>]) {
-  loop {
-    if shutdown.load(Ordering::SeqCst) { break; }
-    if let Some(sample) = producer.try_pop() {
-      consumers.iter().for_each(|c| {
-        if let Err(e) = c.send(sample) {
-          eprintln!("Could not fan out audio stream: {e}")
-        }
-      });
-    } else {
-      sleep(Duration::from_millis(2));
-    }
-  }
-}
 
 fn websocket_connect_loop(shutdown: Arc<AtomicBool>, opus_rx: &Receiver<Vec<u8>>, url: &SocketAddr, credentials: &Credentials) {
   let connected = Arc::new(AtomicBool::new(false));

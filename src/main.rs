@@ -74,7 +74,7 @@ fn main() -> anyhow::Result<()> {
   }
 
   let host = cpal::default_host();
-  let device = crate::audio::find_audio_device(&host, &config)?;
+  let device = crate::audio::find_audio_device(&host, &config.audio_interface)?;
   let (mut tx, rx) = HeapRb::<f32>::new(DEFAULT_SR as usize * 4).split();
   let remote_ip = Ipv4Addr::from_str(&config.ip)?;
   let remote_addr = SocketAddr::new(std::net::IpAddr::V4(remote_ip), config.port);
