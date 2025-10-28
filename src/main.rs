@@ -11,6 +11,7 @@ use crate::args::Args;
 use crate::config::Config;
 use crate::err::AUDIO_INTERFACE_NOT_FOUND;
 use crate::threads::ws;
+use crate::util::create_recordings_dir;
 
 use clap::Parser;
 use cpal::{
@@ -54,14 +55,27 @@ fn main() -> anyhow::Result<()> {
   let config = Config::load_or_create(args.reset_config).map(|c| c.merge_cli_args(&args))?;
   let filename = crate::util::format_filename(config.file.clone());
   let home = std::env::var("HOME")?;
-  let out_dir = match output {
+  let record_dir = match output {
     Some(p) => PathBuf::from(p),
     None => PathBuf::from(home).join("tau").join("recordings"),
   };
 
+  if !record_dir.exists() && let Err(e) = create_recordings_dir(&record_dir) {
+    return Err(
+      anyhow::anyhow!(
+        "{}Could not create directory for saving recorded sessions: {}\n\t{}{}{}\n\n{e}",
+        color_yellow,
+        color_reset,
+        color_red,
+        record_dir.display(),
+        color_reset
+      )
+    );
+  }
+
   let shutdown: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
 
-  let path = out_dir.join(filename.clone().to_string());
+  let path = record_dir.join(filename.clone().to_string());
   if path.exists() {
     return Err(anyhow::anyhow!(
       "{}\n\tUnable to overwrite already existing file:{}\n\t{}{}{}",
@@ -90,7 +104,7 @@ fn main() -> anyhow::Result<()> {
   if args.no_recording {
     spawn(move || ws::thread( rx, remote_addr, filename, creds, shutdown_clone));
   } else {
-    spawn(move || ws::rec_thread( rx, remote_addr, &out_dir, filename, creds, shutdown_clone));
+    spawn(move || ws::rec_thread( rx, remote_addr, &record_dir, filename, creds, shutdown_clone));
   }
 
   let requested_config = StreamConfig {
