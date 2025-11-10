@@ -1,0 +1,58 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+jobs:
+  release:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      repository-projects: write
+    env:
+      CMD: cargo build --release
+      DEST: tau-radio
+      TOOLCHAINS: x86_64-apple-darwin aarch64-apple-darwin x86_64-unknown-linux-gnu
+      CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER: x86_64-linux-gnu-gcc
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: install linux cross-compile dependencies
+        run: |
+          brew install messense/macos-cross-toolchains/x86_64-unknown-linux-gnu opus libopusenc libogg libshout
+
+      - name: install rust toolchains
+        run: |
+          for tc in ${TOOLCHAINS[@]}; do
+            rustup target install $tc
+          done
+
+      - name: compile intel mac and zip
+        run: |
+          $CMD --target=x86_64-apple-darwin
+          mv target/x86_64-apple-darwin/release/tau-radio $DEST
+          zip tau-radio_macOS_intel.zip $DEST
+          rm $DEST
+
+      - name: compile arm mac and zip
+        run: |
+          $CMD --target=aarch64-apple-darwin
+          mv target/aarch64-apple-darwin/release/tau-radio $DEST
+          zip tau-radio_macOS_arm.zip $DEST
+          rm $DEST
+      
+      - name: compile linux and zip
+        run: | 
+          $CMD --target=x86_64-unknown-linux-gnu
+          mv target/x86_64-unknown-linux-gnu/release/tau-radio $DEST
+          zip tau-radio_linux.zip $DEST
+          rm $DEST
+
+      - name: create release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: 'tau-radio_macOS_intel.zip, tau-radio_macOS_arm.zip, tau-radio_linux.zip'
