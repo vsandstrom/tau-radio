@@ -23,7 +23,7 @@ jobs:
 
       - name: install linux cross-compile dependencies
         run: |
-          brew install messense/macos-cross-toolchains/x86_64-unknown-linux-gnu opus libopusenc libogg libshout
+          brew install messense/macos-cross-toolchains/x86_64-unknown-linux-gnu pkg-config opus libopusenc libogg libshout
 
       - name: install rust toolchains
         run: |
