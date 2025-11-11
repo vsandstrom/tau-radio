@@ -30,7 +30,7 @@ jobs:
               brew install opus libogg opus-tools libshout
 
 
-          - os: macos-13
+          - os: macos-15-intel
             toolchain: x86_64-apple-darwin 
             artifact: tau-radio_macOS_arm.zip
             dependencies: |
@@ -81,6 +81,13 @@ jobs:
         with:
           path: .
           merge-multiple: true    
+      - name: Configure token
+        run: |
+          if [ -n "${{ secrets.PERSONAL_TOKEN }}" ]; then
+            echo "RELEASE_TOKEN=${{ secrets.PERSONAL_TOKEN }}" >> $GITHUB_ENV
+          else
+            echo "RELEASE_TOKEN=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_ENV
+          fi
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -88,4 +95,4 @@ jobs:
           tag_name: ${{ github.ref_name }}
           body: "Automated release of ${{ github.ref_name }}."
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ env.RELEASE_TOKEN }}
