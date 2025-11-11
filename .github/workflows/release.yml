@@ -76,10 +76,13 @@ jobs:
     steps:
       - name: Download Artifacts
         uses: actions/download-artifact@v4
+        with:
+          path: .
+          merge-multiple: true    
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ./tau-radio-*
+          files: tau-radio-*
           tag_name: ${{ github.ref_name }}
           body: "Automated release of ${{ github.ref_name }}."
         env:
