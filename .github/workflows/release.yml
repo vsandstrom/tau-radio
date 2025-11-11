@@ -30,7 +30,7 @@ jobs:
               brew install opus libogg opus-tools libshout
 
 
-          - os: macos-13
+          - os: macos-15
             toolchain: x86_64-apple-darwin 
             artifact: tau-radio_macOS_arm.zip
             dependencies: |
