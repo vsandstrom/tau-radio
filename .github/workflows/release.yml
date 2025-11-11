@@ -27,7 +27,7 @@ jobs:
             artifact: tau-radio_macOS_intel.zip
             dependencies: |
               brew update
-              brew install opus libogg opus-tools libshout pkg-config,
+              brew install opus libogg opus-tools libshout
 
 
           - os: macos-13
@@ -35,7 +35,7 @@ jobs:
             artifact: tau-radio_macOS_arm.zip
             dependencies: |
               brew update
-              brew install opus libogg opus-tools libshout pkg-config,
+              brew install opus libogg opus-tools libshout
 
     permissions:
       contents: write
