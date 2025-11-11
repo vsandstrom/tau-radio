@@ -59,16 +59,16 @@ jobs:
       # 
       - name: compile linux and zip
         run: | 
-          $CMD --target=x86_64-unknown-linux-gnu
-          mv target/x86_64-unknown-linux-gnu/release/tau-radio $DEST
+          $CMD --target=$TOOLCHAIN
+          mv target/$TOOLCHAIN/release/tau-radio $DEST
           zip $ARTIFACT $DEST
           rm $DEST
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: $ARTIFACT
-          path: $ARTIFACT
+          name: ${{env.ARTIFACT}}
+          path: ${{env.ARTIFACT}}
 
   release:
     needs: build-linux
