@@ -5,21 +5,46 @@ on:
     tags:
       - "v*.*.*"
 jobs:
-  build-linux:
-    runs-on: ubuntu-latest
+  build:
+    runs-on: ${{matrix.os}}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            toolchain: x86_64-unknown-linux-gnu 
+            artifact: tau-radio_linux.zip
+            dependencies: |
+              sudo apt update
+              sudo apt install \
+                build-essential autoconf automake libtool pkg-config \
+                libjack-dev libasound2-dev libpipewire-0.3-dev \
+                libopus-dev libopusenc-dev libopusfile-dev opus-tools \
+                libogg-dev libshout-dev
+
+
+          - os: macos-latest
+            toolchain: x86_64-apple-darwin 
+            artifact: tau-radio_macOS_intel.zip
+            dependencies: |
+              brew update
+              brew install opus libogg opus-tools libshout pkg-config,
+
+
+          - os: macos-13
+            toolchain: aarch64-apple-darwin
+            artifact: tau-radio_macOS_arm.zip
+            dependencies: |
+              brew update
+              brew install opus libogg opus-tools libshout pkg-config,
+
     permissions:
       contents: write
       pull-requests: write
       repository-projects: write
+
     env:
       CMD: cargo build --release
       DEST: tau-radio
-      ARTIFACT: tau-radio-linux.zip
-      PKG_CONFIG_SYSROOT_DIR: /
-      # BREW_PKGS: messense/macos-cross-toolchains/x86_64-unknown-linux-gnu pkg-config opus libopusenc libogg libshout
-      # TOOLCHAINS: x86_64-apple-darwin aarch64-apple-darwin x86_64-unknown-linux-gnu
-      TOOLCHAIN: x86_64-unknown-linux-gnu
-      # CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER: x86_64-linux-gnu-gcc
 
     steps:
       - uses: actions/checkout@v4
@@ -27,51 +52,28 @@ jobs:
 
       - name: install dependencies
         run: |
-          sudo apt update
-          sudo apt install \
-            build-essential autoconf automake libtool pkg-config \
-            libjack-dev libasound2-dev libpipewire-0.3-dev \
-            libopus-dev libopusenc-dev libopusfile-dev opus-tools \
-            libogg-dev libshout-dev
-
-      # - name: Set environment variables
-      #   run: |
-      #     echo "PKG_CONFIG_PATH=$(brew --prefix)/lib/pkgconfig" >> $GITHUB_ENV
-      #     echo "PKG_CONFIG_SYSROOT_DIR=$(brew --prefix)" >> $GITHUB_ENV
+          ${{matrix.dependencies}}
 
       - name: install rust toolchains
         run: |
-          rustup target install $TOOLCHAIN
+          rustup target install ${{matrix.toolchain}}
 
-      # - name: compile intel mac and zip
-      #   run: |
-      #     $CMD --target=x86_64-apple-darwin
-      #     mv target/x86_64-apple-darwin/release/tau-radio $DEST
-      #     zip tau-radio_macOS_intel.zip $DEST
-      #     rm $DEST
-      #
-      # - name: compile arm mac and zip
-      #   run: |
-      #     $CMD --target=aarch64-apple-darwin
-      #     mv target/aarch64-apple-darwin/release/tau-radio $DEST
-      #     zip tau-radio_macOS_arm.zip $DEST
-      #     rm $DEST
-      # 
-      - name: compile linux and zip
+      - name: compile and zip
         run: | 
-          $CMD --target=$TOOLCHAIN
-          mv target/$TOOLCHAIN/release/tau-radio $DEST
-          zip $ARTIFACT $DEST
+          $CMD --target=${{matrix.toolchain}}
+          mv target/${{matrix.toolchain}}/release/tau-radio $DEST
+          zip ${{matrix.artifact}} $DEST
           rm $DEST
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{env.ARTIFACT}}
-          path: ${{env.ARTIFACT}}
+          name: ${{matrix.artifact}}
+          path: ${{matrix.artifact}}
+
 
   release:
-    needs: build-linux
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - name: Download Artifacts
@@ -82,13 +84,8 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: tau-radio-*
+          files: tau-radio_*
           tag_name: ${{ github.ref_name }}
           body: "Automated release of ${{ github.ref_name }}."
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # - name: create release
-      #   uses: ncipollo/release-action@v1
-      #   with:
-      #     artifacts: 'tau-radio_macOS_intel.zip, tau-radio_macOS_arm.zip, tau-radio_linux.zip'
