@@ -76,6 +76,13 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - name: Configure token
+        run: |
+          if [ -n "${{ secrets.PERSONAL_TOKEN }}" ]; then
+            echo "RELEASE_TOKEN=${{ secrets.PERSONAL_TOKEN }}" >> $GITHUB_ENV
+          else
+            echo "RELEASE_TOKEN=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_ENV
+          fi
       - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
@@ -88,4 +95,4 @@ jobs:
           tag_name: ${{ github.ref_name }}
           body: "Automated release of ${{ github.ref_name }}."
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ env.RELEASE_TOKEN }}
