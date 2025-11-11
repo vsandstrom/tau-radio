@@ -23,7 +23,7 @@ jobs:
 
 
           - os: macos-latest
-            toolchain: x86_64-apple-darwin 
+            toolchain: aarch64-apple-darwin
             artifact: tau-radio_macOS_intel.zip
             dependencies: |
               brew update
@@ -31,7 +31,7 @@ jobs:
 
 
           - os: macos-13
-            toolchain: aarch64-apple-darwin
+            toolchain: x86_64-apple-darwin 
             artifact: tau-radio_macOS_arm.zip
             dependencies: |
               brew update
