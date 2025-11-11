@@ -88,6 +88,13 @@ jobs:
         with:
           path: .
           merge-multiple: true    
+      - name: Configure token
+        run: |
+          if [ -n "${{ secrets.PERSONAL_TOKEN }}" ]; then
+            echo "RELEASE_TOKEN=${{ secrets.PERSONAL_TOKEN }}" >> $GITHUB_ENV
+          else
+            echo "RELEASE_TOKEN=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_ENV
+          fi
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
