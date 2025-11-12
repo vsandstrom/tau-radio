@@ -1,4 +1,4 @@
-name: Compiles on Mac (Intel / Silicon), Ubuntu and with NixOS
+name: Compiles on macOS (Intel / Silicon), Ubuntu and NixOS
 
 on:
   push:
