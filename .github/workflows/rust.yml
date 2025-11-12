@@ -1,4 +1,4 @@
-name: Rust
+name: Compiles on Mac (Intel / Silicon), Ubuntu and with NixOS
 
 on:
   push:
@@ -10,6 +10,25 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  build:
+    runs-on: ${{matrix.os}}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            dependencies: |
+              sudo apt-get update 
+              sudo apt-get install -y \
+                build-essential \
+                autoconf automake libtool pkg-config \
+                libjack-dev libasound2-dev libpipewire-0.3-dev \
+                libopus-dev libogg-dev libopusfile-dev libopusenc-dev 
+          - os: macos-latest
+            dependencies: |
+              brew install opus libogg opus-tools libshout pkg-config
+          - os: macos-15-intel
+            dependencies: |
+              brew install opus libogg opus-tools libshout pkg-config
   build-linux:
     runs-on: ubuntu-latest
     steps:
@@ -22,44 +41,13 @@ jobs:
           ~/.cargo/registry
           ~/.cargo/git
           target
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
         restore-keys: |
-          ${{ runner.os }}-cargo-
+          ${{ matrix.os }}-cargo-
 
     - name: Install audio dependencies  
       run: |
-        sudo apt-get update 
-        sudo apt-get install -y \
-        build-essential \
-        autoconf automake libtool pkg-config \
-        libjack-dev libasound2-dev libpipewire-0.3-dev \
-        libopus-dev libogg-dev libopusfile-dev libopusenc-dev 
-    
-    - name: Build
-      run: cargo build --verbose
-    
-    - name: Run tests
-      run: cargo test --verbose
-      
-  build-macos:
-    runs-on: macos-latest
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Cache Rust dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-cargo-
-
-    - name: Install audio & codec dependencies (macOS)
-      run: |
-        brew install opus libogg opus-tools libshout pkg-config
+        ${{ matrix.dependencies }}
     
     - name: Build
       run: cargo build --verbose
