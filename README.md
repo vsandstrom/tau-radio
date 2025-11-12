@@ -1,3 +1,7 @@
+
+[![Compiles on macOS (Intel / Silicon), Ubuntu and NixOS](https://github.com/tau-org/tau-radio/actions/workflows/rust.yml/badge.svg?event=pull_request)](https://github.com/tau-org/tau-radio/actions/workflows/rust.yml)
+
+
 ## Usage:
 This tool is built for livestreaming audio to a server hosting a
 [`tau-tower`](https://github.com/tau-org/tau-tower)
