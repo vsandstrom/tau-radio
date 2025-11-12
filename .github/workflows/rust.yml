@@ -29,8 +29,6 @@ jobs:
           - os: macos-15-intel
             dependencies: |
               brew install opus libogg opus-tools libshout pkg-config
-  build-linux:
-    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
     
