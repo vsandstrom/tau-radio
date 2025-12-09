@@ -113,6 +113,15 @@ fn handle_websocket(shutdown: Arc<AtomicBool>, ws: &mut WebSocket<MaybeTlsStream
 
 fn websocket_connect_loop(shutdown: Arc<AtomicBool>, opus_rx: &Receiver<Vec<u8>>, url: &SocketAddr, credentials: &Credentials) {
   let connected = Arc::new(AtomicBool::new(false));
+  #[cfg(feature="tls")]
+  let uri = Uri::builder()
+    .scheme("wss")
+    .authority(format!("{}:{}", url.ip(), url.port()))
+    .path_and_query("/")
+    .build()
+    .unwrap();
+
+  #[cfg(not(feature="tls"))]
   let uri = Uri::builder()
     .scheme("ws")
     .authority(format!("{}:{}", url.ip(), url.port()))
