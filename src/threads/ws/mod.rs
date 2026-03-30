@@ -132,7 +132,7 @@ fn websocket_connect_loop(shutdown: Arc<AtomicBool>, opus_rx: &Receiver<Vec<u8>>
   let request = ClientRequestBuilder::new(uri.clone())
     .with_header("password", credentials.password.clone())
     .with_header("username", credentials.username.clone())
-    .with_header("port", credentials.broadcast_port.to_string());
+    .with_header("port", credentials.upstream_port.to_string());
 
   let mut last_log = Instant::now();
 

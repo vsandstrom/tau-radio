@@ -11,7 +11,7 @@ pub struct Config {
     pub password: String,
     pub ip: String,
     pub port: u16,
-    pub broadcast_port: u16,
+    pub upstream_port: u16,
     pub audio_interface: String,
     pub file: Option<String>,
 }
@@ -95,13 +95,13 @@ impl Config {
         .and_then(crate::args::validate_ip)?;
 
       let port: u16 = Input::new()
-        .with_prompt(format!("{color_bright_yellow}Local Stream Port{color_reset}"))
+        .with_prompt(format!("{color_bright_yellow}Upstream Port{color_reset}"))
         .default(8000)
         .interact_text()
         .map_err(|e| TauConfigError::Input(e.to_string()))
         .and_then(validate_port)?;
 
-      let broadcast_port: u16 = Input::new()
+      let upstream_port: u16 = Input::new()
         .with_prompt(format!("{color_bright_yellow}Remote Broadcast port{color_reset}"))
         .default(8001)
         .interact_text()
@@ -125,7 +125,7 @@ impl Config {
         password,
         ip,
         port,
-        broadcast_port,
+        upstream_port,
         audio_interface,
         file: if file.trim().is_empty() {
           None

@@ -46,7 +46,7 @@ const DEFAULT_CH: usize = 2;
 struct Credentials {
   username: String,
   password: String,
-  broadcast_port: u16,
+  upstream_port: u16,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -96,7 +96,7 @@ fn main() -> anyhow::Result<()> {
   let creds: Credentials = Credentials { 
     username: config.username.clone(), 
     password: config.password.clone(),
-    broadcast_port: config.broadcast_port
+    upstream_port: config.upstream_port
   };
 
   let filename = filename.clone();
