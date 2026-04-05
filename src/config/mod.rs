@@ -147,3 +147,16 @@ impl Config {
     }
   }
 }
+
+
+pub struct Credentials {
+  username: String,
+  password: String,
+  upstream_port: u16,
+}
+
+impl Credentials {
+  pub fn new(username: String, password: String, upstream_port: u16) -> Self {
+    Self { username, password, upstream_port }
+  }
+}

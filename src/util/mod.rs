@@ -24,3 +24,15 @@ pub fn create_recordings_dir(path: &Path) -> Result<(), std::io::Error> {
   );
   Ok(())
 }
+
+pub mod consts {
+  /// Ogg opus fixed samplerate
+  pub const DEFAULT_SR: i32 = 48000;
+  /// Ogg opus fixed channel size
+  // TODO: Handle multichannel stream based on user config
+  pub const DEFAULT_CH: usize = 2;
+  #[cfg(target_os = "macos")]
+  pub const DEFAULT_INPUT: &str = "BlackHole 2ch";
+  #[cfg(target_os = "linux")]
+  pub const DEFAULT_INPUT: &str = "pipewire";
+}

@@ -19,12 +19,13 @@ use cpal::{
   traits::{DeviceTrait, StreamTrait},
   StreamConfig
 };
-#[allow(unused)]
+
 use inline_colorization::*;
 use ringbuf::{
   HeapRb,
   traits::{Producer, Split},
 };
+
 use std::{
   net::{Ipv4Addr, SocketAddr},
   path::PathBuf,
@@ -33,21 +34,9 @@ use std::{
   thread::spawn
 };
 
-#[cfg(target_os = "macos")]
-const DEFAULT_INPUT: &str = "BlackHole 2ch";
-#[cfg(target_os = "linux")]
-const DEFAULT_INPUT: &str = "pipewire";
+use util::consts::{DEFAULT_CH, DEFAULT_SR, DEFAULT_INPUT};
+use config::Credentials;
 
-const DEFAULT_SR: i32 = 48000;
-// TODO: Handle multichannel stream based on user config
-const DEFAULT_CH: usize = 2;
-
-
-struct Credentials {
-  username: String,
-  password: String,
-  upstream_port: u16,
-}
 
 fn main() -> anyhow::Result<()> {
   let args = Args::parse();
@@ -93,11 +82,11 @@ fn main() -> anyhow::Result<()> {
   let remote_ip = Ipv4Addr::from_str(&config.ip)?;
   let remote_addr = SocketAddr::new(std::net::IpAddr::V4(remote_ip), config.port);
 
-  let creds: Credentials = Credentials { 
-    username: config.username.clone(), 
-    password: config.password.clone(),
-    upstream_port: config.upstream_port
-  };
+  let creds: Credentials = Credentials::new(
+    config.username.clone(),
+    config.password.clone(),
+    config.upstream_port
+  );
 
   let filename = filename.clone();
   let shutdown_clone = shutdown.clone();
