@@ -1,7 +1,7 @@
 use clap::Parser;
 
 // use crate::StreamType;
-use crate::config::TauConfigError;
+use crate::{config::TauConfigError, util::{IP_RE, URL_RE}};
 use is_ip::is_ip;
 
 #[derive(Parser)]
@@ -18,8 +18,8 @@ pub(crate) struct Args {
     pub password: Option<String>,
 
     /// Tau-tower server ip
-    #[arg(short, long, value_parser=|s: &str| validate_ip(s.to_string()))]
-    pub ip: Option<String>,
+    #[arg(short, long, value_parser=|s: &str| validate_url_or_ip(s.to_string()))]
+    pub url: Option<String>,
 
     /// Tau-tower server port
     #[arg(short, long, value_parser=|p: &str| {
@@ -44,11 +44,10 @@ pub(crate) struct Args {
     pub reset_config: bool,
 }
 
-pub fn validate_ip(ip: String) -> Result<String, TauConfigError> {
-  if !is_ip(&ip) {
-    return Err(TauConfigError::InvalidIp(ip));
-  }
-  Ok(ip)
+
+pub fn validate_url_or_ip(ip_or_url: String) -> Result<String, TauConfigError> {
+  if IP_RE.is_match(&ip_or_url) || URL_RE.is_match(&ip_or_url) { return Ok(ip_or_url) } 
+  Err(TauConfigError::InvalidUrl(ip_or_url))
 }
 
 fn parse_port(p: &str) -> Result<u16, TauConfigError> {
@@ -58,7 +57,7 @@ fn parse_port(p: &str) -> Result<u16, TauConfigError> {
 
 pub fn validate_port(port: u16) -> Result<u16, TauConfigError> {
   if !(1..=0xFFFF).contains(&port) {
-    return Err(TauConfigError::InvalidPort(port));
+    return Err(TauConfigError::InvalidPort(port.to_string()));
   }
   Ok(port)
 }

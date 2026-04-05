@@ -1,19 +1,30 @@
+mod prompts;
 use dialoguer::{Input, Password};
 use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf};
-use inline_colorization::*;
+// use inline_colorization::*;
 
-use crate::args::validate_port;
+use crate::{
+  args::{
+    validate_port,
+    validate_url_or_ip
+  },
+};
+
+pub enum UrlOrIp {
+  Url(String),
+  Ip(String)
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
     pub username: String,
     pub password: String,
-    pub ip: String,
+    pub url: String,
     pub port: u16,
-    pub upstream_port: u16,
     pub audio_interface: String,
     pub file: Option<String>,
+    pub tls: bool
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -22,13 +33,16 @@ pub enum TauConfigError {
     Io(#[from] std::io::Error),
 
     #[error("toml parsing error: {0}")]
-    Toml(#[from] toml::de::Error),
+    TomlDeserialize(#[from] toml::de::Error),
+
+    #[error("toml parsing error: {0}")]
+    TomlSerialize(#[from] toml::ser::Error),
 
     #[error("invalid IP: {0}")]
-    InvalidIp(String),
+    InvalidUrl(String),
 
     #[error("invalid port number: {0}")]
-    InvalidPort(u16),
+    InvalidPort(String),
 
     #[error("user input error: {0}")]
     Input(String),
@@ -51,7 +65,7 @@ impl Config {
   pub fn merge_cli_args(mut self, args: &crate::args::Args) -> Self {
     if let Some(un) = &args.username {self.username = un.to_string()}
     if let Some(pw) = &args.password {self.password = pw.to_string()}
-    if let Some(u)  = &args.ip       {self.ip       = u.to_string()}
+    if let Some(u)  = &args.url      {self.url      = u.to_string()}
     if let Some(p)      = args.port      {self.port     = p}
     if let Some(f)  = &args.file     {self.file     = Some(f.to_string())}
     self
@@ -61,7 +75,7 @@ impl Config {
     let settings = fs::read_to_string(path)?; //.expect("could not read config file");
     match toml::from_str(&settings) {
       Ok(config) => Ok(config),
-      Err(e) => Err(TauConfigError::Toml(e)),
+      Err(e) => Err(TauConfigError::TomlDeserialize(e)),
     }
   }
 
@@ -72,78 +86,84 @@ impl Config {
     if path.exists() && !reset {
       Self::load_config(&path)
     } else {
-      println!(
-        "\n{color_bright_yellow}No config found at '{}'. Let's create one: {color_reset}",
-        path.display()
-      );
-      println!("{color_bright_red}Credentials must correspond to broadcast server stream config{color_reset}\n");
+      prompts::config_not_found(&path);
+      prompts::warn_about_credentials();
       let username: String = Input::new()
-        .with_prompt(format!("{color_bright_yellow}Username{color_reset}"))
+        .with_prompt(prompts::username_prompt())
         .interact_text()
         .map_err(|e| TauConfigError::Input(e.to_string()))?;
 
       let password: String = Password::new()
-        .with_prompt(format!("{color_bright_yellow}Password{color_reset}"))
+        .with_prompt(prompts::password_prompt())
         .interact()
         .map_err(|e| TauConfigError::Input(e.to_string()))?;
       
-      let ip: String = Input::new()
-        .with_prompt(format!("{color_bright_yellow}Broadcast IP{color_reset}"))
+      let url: String = Input::new()
+        .with_prompt(prompts::ip_prompt())
         .default("127.0.0.1".to_string())
         .interact_text()
-        .map_err(|e| TauConfigError::Input(e.to_string()))
-        .and_then(crate::args::validate_ip)?;
+        .map_err(|e| TauConfigError::InvalidUrl(e.to_string()))
+        .and_then(validate_url_or_ip)?;
 
       let port: u16 = Input::new()
-        .with_prompt(format!("{color_bright_yellow}Upstream Port{color_reset}"))
+        .with_prompt(prompts::port_prompt())
         .default(8000)
         .interact_text()
-        .map_err(|e| TauConfigError::Input(e.to_string()))
-        .and_then(validate_port)?;
-
-      let upstream_port: u16 = Input::new()
-        .with_prompt(format!("{color_bright_yellow}Remote Broadcast port{color_reset}"))
-        .default(8001)
-        .interact_text()
-        .map_err(|e| TauConfigError::Input(e.to_string()))
+        .map_err(|e| TauConfigError::InvalidPort(e.to_string()))
         .and_then(validate_port)?;
 
       let audio_interface = Input::new()
-        .with_prompt(format!("{color_bright_yellow}Audio Interface{color_reset}"))
+        .with_prompt(prompts::audio_interface_prompt())
         .default(crate::DEFAULT_INPUT.to_string())
         .interact_text()
         .map_err(|e| TauConfigError::Input(e.to_string()))?;
 
       let file: String = Input::new()
-        .with_prompt(format!("{color_bright_yellow}Filename (leave empty for 'tau_[timestamp].ogg'){color_reset}"))
+        .with_prompt(prompts::filename_prompt())
         .allow_empty(true)
         .interact()
         .map_err(|e| TauConfigError::Input(e.to_string()))?;
 
+      let tls: bool = Input::new()
+        .with_prompt(prompts::tls_prompt())
+        .default(true)
+        .interact()
+        .map_err(|e| TauConfigError::Input(e.to_string()))?;
+
+
       let config = Config {
         username,
         password,
-        ip,
+        url,
         port,
-        upstream_port,
         audio_interface,
-        file: if file.trim().is_empty() {
-          None
-        } else {
-          Some(file)
-        },
+        tls,
+        file: if file.trim().is_empty() { None } 
+              else { Some(file) },
       };
 
       if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
       }
 
-      let toml_string = toml::to_string_pretty(&config).unwrap();
+      let toml_string = toml::to_string_pretty(&config)
+        .map_err(|e| TauConfigError::TomlSerialize(e))?;
       fs::write(&path, toml_string)?;
-      println!("\
-        \n{color_bright_yellow}A config file has been written to:{color_reset}\n\t\
-        {color_bright_red}{}{color_reset}\n", path.display());
+      prompts::config_created(&path);
       Ok(config)
     }
   }
+}
+
+pub struct Credentials {
+  username: String,
+  password: String,
+}
+
+impl Credentials {
+  pub fn new(username: String, password: String) -> Self {
+    Self { username, password }
+  }
+  pub fn get_username(&self) -> String { self.username.clone() }
+  pub fn get_password(&self) -> String { self.password.clone() }
 }
