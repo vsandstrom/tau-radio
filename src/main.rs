@@ -49,6 +49,8 @@ fn main() -> anyhow::Result<()> {
     None => PathBuf::from(home).join("tau").join("recordings"),
   };
 
+
+
   if !record_dir.exists() && let Err(e) = create_recordings_dir(&record_dir) {
     return Err(
       anyhow::anyhow!(
@@ -62,7 +64,6 @@ fn main() -> anyhow::Result<()> {
     );
   }
 
-  let shutdown: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
 
   let path = record_dir.join(filename.clone().to_string());
   if path.exists() {
@@ -79,21 +80,22 @@ fn main() -> anyhow::Result<()> {
   let host = cpal::default_host();
   let device = crate::audio::find_audio_device(&host, &config.audio_interface)?;
   let (mut tx, rx) = HeapRb::<f32>::new(DEFAULT_SR as usize * 4).split();
-  let remote_ip = Ipv4Addr::from_str(&config.ip)?;
-  let remote_addr = SocketAddr::new(std::net::IpAddr::V4(remote_ip), config.port);
+  // let remote_ip = Ipv4Addr::from_str(&config.url)?;
+  // let remote_addr = SocketAddr::new(std::net::IpAddr::V4(remote_ip), config.port);
 
   let creds: Credentials = Credentials::new(
     config.username.clone(),
     config.password.clone(),
-    config.upstream_port
   );
 
   let filename = filename.clone();
+  let shutdown: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
   let shutdown_clone = shutdown.clone();
+  let url_clone = config.url.clone();
   if args.no_recording {
-    spawn(move || ws::thread( rx, remote_addr, filename, creds, shutdown_clone));
+    spawn(move || ws::thread( rx, (&url_clone, config.port), filename, creds, shutdown_clone));
   } else {
-    spawn(move || ws::rec_thread( rx, remote_addr, &record_dir, filename, creds, shutdown_clone));
+    spawn(move || ws::rec_thread( rx, (&url_clone, config.port), &record_dir, filename, creds, shutdown_clone));
   }
 
   let requested_config = StreamConfig {
@@ -123,7 +125,7 @@ fn main() -> anyhow::Result<()> {
     config.audio_interface,
     &path,
     args.no_recording,
-    &config.ip,
+    &config.url,
     &config.port,
   );
 

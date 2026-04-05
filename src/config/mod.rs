@@ -1,17 +1,27 @@
+mod prompts;
 use dialoguer::{Input, Password};
 use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf};
-use inline_colorization::*;
+// use inline_colorization::*;
 
-use crate::args::validate_port;
+use crate::{
+  args::{
+    validate_port,
+    validate_url_or_ip
+  },
+};
+
+pub enum UrlOrIp {
+  Url(String),
+  Ip(String)
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
     pub username: String,
     pub password: String,
-    pub ip: String,
+    pub url: String,
     pub port: u16,
-    pub upstream_port: u16,
     pub audio_interface: String,
     pub file: Option<String>,
 }
@@ -51,7 +61,7 @@ impl Config {
   pub fn merge_cli_args(mut self, args: &crate::args::Args) -> Self {
     if let Some(un) = &args.username {self.username = un.to_string()}
     if let Some(pw) = &args.password {self.password = pw.to_string()}
-    if let Some(u)  = &args.ip       {self.ip       = u.to_string()}
+    if let Some(u)  = &args.url      {self.url      = u.to_string()}
     if let Some(p)      = args.port      {self.port     = p}
     if let Some(f)  = &args.file     {self.file     = Some(f.to_string())}
     self
@@ -72,50 +82,40 @@ impl Config {
     if path.exists() && !reset {
       Self::load_config(&path)
     } else {
-      println!(
-        "\n{color_bright_yellow}No config found at '{}'. Let's create one: {color_reset}",
-        path.display()
-      );
-      println!("{color_bright_red}Credentials must correspond to broadcast server stream config{color_reset}\n");
+      prompts::config_not_found(&path);
+      prompts::warn_about_credentials();
       let username: String = Input::new()
-        .with_prompt(format!("{color_bright_yellow}Username{color_reset}"))
+        .with_prompt(prompts::username_prompt())
         .interact_text()
         .map_err(|e| TauConfigError::Input(e.to_string()))?;
 
       let password: String = Password::new()
-        .with_prompt(format!("{color_bright_yellow}Password{color_reset}"))
+        .with_prompt(prompts::password_prompt())
         .interact()
         .map_err(|e| TauConfigError::Input(e.to_string()))?;
       
-      let ip: String = Input::new()
-        .with_prompt(format!("{color_bright_yellow}Broadcast IP{color_reset}"))
+      let url: String = Input::new()
+        .with_prompt(prompts::ip_prompt())
         .default("127.0.0.1".to_string())
         .interact_text()
         .map_err(|e| TauConfigError::Input(e.to_string()))
-        .and_then(crate::args::validate_ip)?;
+        .and_then(validate_url_or_ip)?;
 
       let port: u16 = Input::new()
-        .with_prompt(format!("{color_bright_yellow}Upstream Port{color_reset}"))
+        .with_prompt(prompts::port_prompt())
         .default(8000)
         .interact_text()
         .map_err(|e| TauConfigError::Input(e.to_string()))
         .and_then(validate_port)?;
 
-      let upstream_port: u16 = Input::new()
-        .with_prompt(format!("{color_bright_yellow}Remote Broadcast port{color_reset}"))
-        .default(8001)
-        .interact_text()
-        .map_err(|e| TauConfigError::Input(e.to_string()))
-        .and_then(validate_port)?;
-
       let audio_interface = Input::new()
-        .with_prompt(format!("{color_bright_yellow}Audio Interface{color_reset}"))
+        .with_prompt(prompts::audio_interface_prompt())
         .default(crate::DEFAULT_INPUT.to_string())
         .interact_text()
         .map_err(|e| TauConfigError::Input(e.to_string()))?;
 
       let file: String = Input::new()
-        .with_prompt(format!("{color_bright_yellow}Filename (leave empty for 'tau_[timestamp].ogg'){color_reset}"))
+        .with_prompt(prompts::filename_prompt())
         .allow_empty(true)
         .interact()
         .map_err(|e| TauConfigError::Input(e.to_string()))?;
@@ -123,15 +123,11 @@ impl Config {
       let config = Config {
         username,
         password,
-        ip,
+        url,
         port,
-        upstream_port,
         audio_interface,
-        file: if file.trim().is_empty() {
-          None
-        } else {
-          Some(file)
-        },
+        file: if file.trim().is_empty() { None } 
+              else { Some(file) },
       };
 
       if let Some(parent) = path.parent() {
@@ -140,23 +136,21 @@ impl Config {
 
       let toml_string = toml::to_string_pretty(&config).unwrap();
       fs::write(&path, toml_string)?;
-      println!("\
-        \n{color_bright_yellow}A config file has been written to:{color_reset}\n\t\
-        {color_bright_red}{}{color_reset}\n", path.display());
+      prompts::config_created(&path);
       Ok(config)
     }
   }
 }
 
-
 pub struct Credentials {
   username: String,
   password: String,
-  upstream_port: u16,
 }
 
 impl Credentials {
-  pub fn new(username: String, password: String, upstream_port: u16) -> Self {
-    Self { username, password, upstream_port }
+  pub fn new(username: String, password: String) -> Self {
+    Self { username, password }
   }
+  pub fn get_username(&self) -> String { self.username.clone() }
+  pub fn get_password(&self) -> String { self.password.clone() }
 }
