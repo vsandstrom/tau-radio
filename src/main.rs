@@ -27,10 +27,8 @@ use ringbuf::{
 };
 
 use std::{
-  net::{Ipv4Addr, SocketAddr},
   path::PathBuf,
-  str::FromStr,
-  sync::{atomic::{AtomicBool, Ordering}, Arc},
+  sync::{Arc, atomic::{AtomicBool, Ordering}},
   thread::spawn
 };
 
@@ -80,8 +78,6 @@ fn main() -> anyhow::Result<()> {
   let host = cpal::default_host();
   let device = crate::audio::find_audio_device(&host, &config.audio_interface)?;
   let (mut tx, rx) = HeapRb::<f32>::new(DEFAULT_SR as usize * 4).split();
-  // let remote_ip = Ipv4Addr::from_str(&config.url)?;
-  // let remote_addr = SocketAddr::new(std::net::IpAddr::V4(remote_ip), config.port);
 
   let creds: Credentials = Credentials::new(
     config.username.clone(),
@@ -93,9 +89,28 @@ fn main() -> anyhow::Result<()> {
   let shutdown_clone = shutdown.clone();
   let url_clone = config.url.clone();
   if args.no_recording {
-    spawn(move || ws::thread( rx, (&url_clone, config.port), filename, creds, shutdown_clone));
+    spawn(move ||
+      ws::thread( 
+        rx,
+        (&url_clone, config.port),
+        config.tls,
+        filename,
+        creds,
+        shutdown_clone
+      )
+    );
   } else {
-    spawn(move || ws::rec_thread( rx, (&url_clone, config.port), &record_dir, filename, creds, shutdown_clone));
+    spawn(move || 
+      ws::rec_thread(
+        rx,
+        (&url_clone, config.port),
+        config.tls,
+        &record_dir,
+        filename,
+        creds,
+        shutdown_clone
+      )
+    );
   }
 
   let requested_config = StreamConfig {
@@ -129,11 +144,8 @@ fn main() -> anyhow::Result<()> {
     &config.port,
   );
 
-  
-
   loop {
     if shutdown.load(Ordering::SeqCst) { return Ok(()) }
     std::thread::sleep(std::time::Duration::from_millis(100));
   }
-
 }

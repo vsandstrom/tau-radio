@@ -20,6 +20,7 @@ pub fn port_prompt() -> String { prompt("Upstream Port") }
 pub fn ip_prompt() -> String { prompt("Broadcast IP or URL") }
 pub fn password_prompt() -> String { prompt("Password") }
 pub fn username_prompt() -> String { prompt("Username") }
+pub fn tls_prompt() -> String { prompt("SSL/TLS enabled") }
 
 pub fn config_not_found(path: &PathBuf) {
   println!(

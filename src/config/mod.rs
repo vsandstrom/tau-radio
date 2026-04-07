@@ -24,6 +24,7 @@ pub struct Config {
     pub port: u16,
     pub audio_interface: String,
     pub file: Option<String>,
+    pub tls: bool
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -32,13 +33,16 @@ pub enum TauConfigError {
     Io(#[from] std::io::Error),
 
     #[error("toml parsing error: {0}")]
-    Toml(#[from] toml::de::Error),
+    TomlDeserialize(#[from] toml::de::Error),
+
+    #[error("toml parsing error: {0}")]
+    TomlSerialize(#[from] toml::ser::Error),
 
     #[error("invalid IP: {0}")]
-    InvalidIp(String),
+    InvalidUrl(String),
 
     #[error("invalid port number: {0}")]
-    InvalidPort(u16),
+    InvalidPort(String),
 
     #[error("user input error: {0}")]
     Input(String),
@@ -71,7 +75,7 @@ impl Config {
     let settings = fs::read_to_string(path)?; //.expect("could not read config file");
     match toml::from_str(&settings) {
       Ok(config) => Ok(config),
-      Err(e) => Err(TauConfigError::Toml(e)),
+      Err(e) => Err(TauConfigError::TomlDeserialize(e)),
     }
   }
 
@@ -98,14 +102,14 @@ impl Config {
         .with_prompt(prompts::ip_prompt())
         .default("127.0.0.1".to_string())
         .interact_text()
-        .map_err(|e| TauConfigError::Input(e.to_string()))
+        .map_err(|e| TauConfigError::InvalidUrl(e.to_string()))
         .and_then(validate_url_or_ip)?;
 
       let port: u16 = Input::new()
         .with_prompt(prompts::port_prompt())
         .default(8000)
         .interact_text()
-        .map_err(|e| TauConfigError::Input(e.to_string()))
+        .map_err(|e| TauConfigError::InvalidPort(e.to_string()))
         .and_then(validate_port)?;
 
       let audio_interface = Input::new()
@@ -120,12 +124,20 @@ impl Config {
         .interact()
         .map_err(|e| TauConfigError::Input(e.to_string()))?;
 
+      let tls: bool = Input::new()
+        .with_prompt(prompts::tls_prompt())
+        .default(true)
+        .interact()
+        .map_err(|e| TauConfigError::Input(e.to_string()))?;
+
+
       let config = Config {
         username,
         password,
         url,
         port,
         audio_interface,
+        tls,
         file: if file.trim().is_empty() { None } 
               else { Some(file) },
       };
@@ -134,7 +146,8 @@ impl Config {
         fs::create_dir_all(parent)?;
       }
 
-      let toml_string = toml::to_string_pretty(&config).unwrap();
+      let toml_string = toml::to_string_pretty(&config)
+        .map_err(|e| TauConfigError::TomlSerialize(e))?;
       fs::write(&path, toml_string)?;
       prompts::config_created(&path);
       Ok(config)

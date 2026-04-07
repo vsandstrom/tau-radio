@@ -33,6 +33,7 @@ const LOG_TIME: Duration = Duration::from_secs(10);
 pub fn thread(
     mut rx: impl Consumer<Item = f32> + Send + 'static,
     url: (&str, u16),
+    tls_enabled: bool,
     filename: Arc<String>,
     credentials: Credentials,
     shutdown: Arc<AtomicBool>
@@ -52,7 +53,7 @@ pub fn thread(
     encode_audio(shutdown_clone, filename, &audio_rx, &opus_tx, framesize);
   });
 
-  websocket_connect_loop(shutdown, &opus_rx, &url, &credentials).map_err(|e| 
+  websocket_connect_loop(shutdown, &opus_rx, &url, &credentials, tls_enabled).map_err(|e| 
     box_err(&format!("Unexpected websocket error {e}"))
   )?;
   
@@ -69,6 +70,7 @@ pub fn thread(
 pub fn rec_thread(
     mut rx: impl Consumer<Item = f32> + Send + 'static,
     url: (&str, u16),
+    tls_enabled: bool,
     path: &Path,
     filename: Arc<String>,
     credentials: Credentials,
@@ -99,7 +101,7 @@ pub fn rec_thread(
     record_audio(shutdown_clone, filename_clone, &record_rx, &out_path, framesize);
   });
 
-  websocket_connect_loop(shutdown, &opus_rx, &url, &credentials).map_err(|e| 
+  websocket_connect_loop(shutdown, &opus_rx, &url, &credentials, tls_enabled).map_err(|e| 
     box_err(&format!("Unexpected websocket error {e}"))
   )?;
   
@@ -134,29 +136,20 @@ fn websocket_connect_loop(
   shutdown: Arc<AtomicBool>,
   opus_rx: &Receiver<Vec<u8>>, 
   url: &(&str, u16),
-  credentials: &Credentials
+  credentials: &Credentials,
+  tls_enabled: bool,
   ) -> Result<(), String> {
   let connected = Arc::new(AtomicBool::new(false));
-  #[cfg(feature="tls")]
-  let uri = match Uri::builder()
-    .scheme("wss")
-    .authority(format!("{}:{}", url.0, url.1))
-    .path_and_query("/")
-    .build() {
-      Ok(url) => url,
-      Err(e) => {return Err(e.to_string())}
-    };
-    
 
-  #[cfg(not(feature="tls"))]
+  let scheme = if tls_enabled { "wss" } else { "ws" };
   let uri = match Uri::builder()
-    .scheme("ws")
+    .scheme(scheme)
     .authority(format!("{}:{}", url.0, url.1))
     .path_and_query("/")
     .build() {
       Ok(url) => url,
       Err(e) => {return Err(e.to_string())}
-    };
+  };
 
   let request = ClientRequestBuilder::new(uri.clone())
     .with_header("password", credentials.get_password())

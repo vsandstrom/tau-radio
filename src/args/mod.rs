@@ -47,7 +47,7 @@ pub(crate) struct Args {
 
 pub fn validate_url_or_ip(ip_or_url: String) -> Result<String, TauConfigError> {
   if IP_RE.is_match(&ip_or_url) || URL_RE.is_match(&ip_or_url) { return Ok(ip_or_url) } 
-  Err(TauConfigError::InvalidIp(ip_or_url))
+  Err(TauConfigError::InvalidUrl(ip_or_url))
 }
 
 fn parse_port(p: &str) -> Result<u16, TauConfigError> {
@@ -57,7 +57,7 @@ fn parse_port(p: &str) -> Result<u16, TauConfigError> {
 
 pub fn validate_port(port: u16) -> Result<u16, TauConfigError> {
   if !(1..=0xFFFF).contains(&port) {
-    return Err(TauConfigError::InvalidPort(port));
+    return Err(TauConfigError::InvalidPort(port.to_string()));
   }
   Ok(port)
 }
