@@ -2,12 +2,11 @@ use clap::Parser;
 
 // use crate::StreamType;
 use crate::{config::TauConfigError, util::{IP_RE, URL_RE}};
-use is_ip::is_ip;
 
 #[derive(Parser)]
 #[command(name = "tau-radio")]
 #[command(version = env!("CARGO_PKG_VERSION"))]
-#[command( about = "Hijacks chosen audio device, encodes audio into Ogg Opus and streams to webradio server [tau-tower]")]
+#[command( about = "Webradio client, Hijacks chosen audio device, encodes into Ogg Opus and streams to tau-tower radio server")]
 pub(crate) struct Args {
     /// Webradio server username
     #[arg(long)]
@@ -22,10 +21,8 @@ pub(crate) struct Args {
     pub url: Option<String>,
 
     /// Tau-tower server port
-    #[arg(short, long, value_parser=|p: &str| {
-      validate_port(parse_port(p).unwrap())
-    })]
-    pub port: Option<u16>,
+    #[arg(short='p', long, value_parser=|p: &str| validate_port(parse_port(p).unwrap()))]
+    pub upstream_port: Option<u16>,
 
     /// Optional custom filename of local copy
     #[arg(short, long)]

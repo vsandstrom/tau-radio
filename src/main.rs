@@ -92,7 +92,7 @@ fn main() -> anyhow::Result<()> {
     spawn(move ||
       ws::thread( 
         rx,
-        (&url_clone, config.port),
+        (&url_clone, config.upstream_port),
         config.tls,
         filename,
         creds,
@@ -103,7 +103,7 @@ fn main() -> anyhow::Result<()> {
     spawn(move || 
       ws::rec_thread(
         rx,
-        (&url_clone, config.port),
+        (&url_clone, config.upstream_port),
         config.tls,
         &record_dir,
         filename,
@@ -141,7 +141,7 @@ fn main() -> anyhow::Result<()> {
     &path,
     args.no_recording,
     &config.url,
-    &config.port,
+    &config.upstream_port,
   );
 
   loop {
