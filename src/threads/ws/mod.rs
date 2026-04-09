@@ -1,5 +1,5 @@
 use std::{
-    net::{SocketAddr, TcpStream}, 
+    net::TcpStream, 
     path::Path,
     sync::{
       atomic::{AtomicBool, Ordering},
