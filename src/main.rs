@@ -1,4 +1,4 @@
-#![deny(unused_extern_crates)]
+#![deny(unused_imports, unused_extern_crates)]
 mod args;
 mod audio;
 mod config;
@@ -22,14 +22,14 @@ use cpal::{
 
 use inline_colorization::*;
 use ringbuf::{
-  HeapRb,
-  traits::{Producer, Split},
+   HeapRb, 
+   traits::{Producer, Split}
 };
 
 use std::{
   path::PathBuf,
   sync::{Arc, atomic::{AtomicBool, Ordering}},
-  thread::spawn
+  thread
 };
 
 use util::consts::{DEFAULT_CH, DEFAULT_SR, DEFAULT_INPUT};
@@ -40,30 +40,28 @@ fn main() -> anyhow::Result<()> {
   let args = Args::parse();
   let output = &args.output.clone();
   let config = Config::load_or_create(args.reset_config).map(|c| c.merge_cli_args(&args))?;
+  let shutdown: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
   let filename = crate::util::format_filename(config.file.clone());
   let home = std::env::var("HOME")?;
-  let record_dir = match output {
+  let record_path = match output {
     Some(p) => PathBuf::from(p),
     None => PathBuf::from(home).join("tau").join("recordings"),
   };
 
-
-
-  if !record_dir.exists() && let Err(e) = create_recordings_dir(&record_dir) {
+  if !record_path.exists() && let Err(e) = create_recordings_dir(&record_path) {
     return Err(
       anyhow::anyhow!(
         "{}Could not create directory for saving recorded sessions: {}\n\t{}{}{}\n\n{e}",
         color_yellow,
         color_reset,
         color_red,
-        record_dir.display(),
+        record_path.display(),
         color_reset
       )
     );
   }
 
-
-  let path = record_dir.join(filename.clone().to_string());
+  let path = record_path.join(filename.clone().to_string());
   if path.exists() {
     return Err(anyhow::anyhow!(
       "{}\n\tUnable to overwrite already existing file:{}\n\t{}{}{}",
@@ -75,42 +73,43 @@ fn main() -> anyhow::Result<()> {
     ));
   }
 
-  let host = cpal::default_host();
-  let device = crate::audio::find_audio_device(&host, &config.audio_interface)?;
-  let (mut tx, rx) = HeapRb::<f32>::new(DEFAULT_SR as usize * 4).split();
+  let (mut tx, rx) = HeapRb::<f32>::new(DEFAULT_SR as usize * 4)
+    .split();
 
-  let creds: Credentials = Credentials::new(
+  let credentials: Credentials = Credentials::new(
     config.username.clone(),
     config.password.clone(),
   );
 
-  let filename = filename.clone();
-  let shutdown: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
-  let shutdown_clone = shutdown.clone();
-  let url_clone = config.url.clone();
-  if args.no_recording {
-    spawn(move ||
-      ws::thread( 
-        rx,
-        (&url_clone, config.upstream_port),
-        config.tls,
-        filename,
-        creds,
-        shutdown_clone
-      )
-    );
-  } else {
-    spawn(move || 
-      ws::rec_thread(
-        rx,
-        (&url_clone, config.upstream_port),
-        config.tls,
-        &record_dir,
-        filename,
-        creds,
-        shutdown_clone
-      )
-    );
+  {
+    let url = config.url.clone();
+    let shutdown = shutdown.clone();
+    if args.no_recording {
+      thread::spawn({
+        move ||
+          ws::thread( 
+            rx,
+            (&url, config.upstream_port),
+            config.tls,
+            filename,
+            credentials,
+            shutdown
+          )
+      });
+    } else {
+      thread::spawn({
+        move || 
+          ws::rec_thread(
+            rx,
+            (&url, config.upstream_port),
+            config.tls,
+            &record_path,
+            filename,
+            credentials,
+            shutdown
+          )
+      });
+    }
   }
 
   let requested_config = StreamConfig {
@@ -118,7 +117,11 @@ fn main() -> anyhow::Result<()> {
     sample_rate: SampleRate(DEFAULT_SR as u32),
     buffer_size: cpal::BufferSize::Default,
   };
-
+ 
+  let host = cpal::default_host();
+  let device = crate::audio::find_audio_device(&host, &config.audio_interface)?;
+  let dev_cfg = device.default_input_config()?;
+  dbg!(dev_cfg.config());
   let stream = device
     .build_input_stream(
       &requested_config,
@@ -145,7 +148,7 @@ fn main() -> anyhow::Result<()> {
   );
 
   loop {
-    if shutdown.load(Ordering::SeqCst) { return Ok(()) }
-    std::thread::sleep(std::time::Duration::from_millis(100));
+    if shutdown.load(Ordering::Acquire) { return Ok(()) }
+    thread::sleep(std::time::Duration::from_millis(100));
   }
 }
