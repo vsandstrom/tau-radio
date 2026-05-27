@@ -1,12 +1,11 @@
 use std::{
-    net::TcpStream, 
-    path::Path,
-    sync::{
-      atomic::{AtomicBool, Ordering},
-      Arc
-    },
-    thread::{sleep, spawn},
-    time::{Duration, Instant}
+  net::TcpStream, 
+  path::Path,
+  sync::{
+    Arc, atomic::{AtomicBool, Ordering}
+  },
+  thread::{sleep, spawn},
+  time::{Duration, Instant}
 };
 
 use tungstenite::{
@@ -42,15 +41,15 @@ pub fn thread(
   let (opus_tx, opus_rx) = bounded::<Vec<u8>>(4096 * 32);
   let (audio_tx, audio_rx) = bounded::<f32>(4096 * 32);
 
-  let shutdown_clone = shutdown.clone();
-  let audio_capture_thread = spawn(move || {
-    audio_capture_loop(shutdown_clone, &mut rx, &[audio_tx]);
+  let audio_capture_thread = spawn({
+    let shutdown = shutdown.clone();
+    move || { audio_capture_loop(shutdown, &mut rx, &[audio_tx]); }
   });
 
-  let shutdown_clone = shutdown.clone();
   // Encoding thread
-  let encoder_thread = spawn(move || {
-    encode_audio(shutdown_clone, filename, &audio_rx, &opus_tx, framesize);
+  let encoder_thread = spawn({
+    let shutdown = shutdown.clone();
+    move || { encode_audio(shutdown, filename, &audio_rx, &opus_tx, framesize); }
   });
 
   websocket_connect_loop(shutdown, &opus_rx, &url, &credentials, tls_enabled).map_err(|e| 
@@ -81,24 +80,24 @@ pub fn rec_thread(
   let (encode_tx, encode_rx) = bounded::<f32>(4096 * 32);
   let (record_tx, record_rx) = bounded::<f32>(4096 * 32);
   
-  let shutdown_clone = shutdown.clone();
-  let audio_capture_thread = spawn(move || {
-    audio_capture_loop(shutdown_clone, &mut rx, &[encode_tx, record_tx]);
+  let audio_capture_thread = spawn({
+    let shutdown = shutdown.clone();
+    move || { audio_capture_loop(shutdown, &mut rx, &[encode_tx, record_tx]); }
   });
 
-  let shutdown_clone = shutdown.clone();
-  let filename_clone = filename.clone();
   // Encoding thread
-  let encoder_thread = spawn(move || {
-    encode_audio(shutdown_clone, filename_clone, &encode_rx, &opus_tx, framesize);
+  let encoder_thread = spawn({
+    let shutdown = shutdown.clone();
+    let filename = filename.clone();
+    move || { encode_audio(shutdown, filename, &encode_rx, &opus_tx, framesize); }
   });
 
-  let filename_clone = filename.clone();
-  let shutdown_clone = shutdown.clone();
-  let out_path = path.join(filename.clone().to_string());
   // Recording thread
-  let recorder_thread = spawn(move || {
-    record_audio(shutdown_clone, filename_clone, &record_rx, &out_path, framesize);
+  let recorder_thread = spawn({
+    let shutdown = shutdown.clone();
+    let filename = filename.clone();
+    let out_path = path.join(filename.clone().to_string());
+    move || { record_audio(shutdown, filename, &record_rx, &out_path, framesize); }
   });
 
   websocket_connect_loop(shutdown, &opus_rx, &url, &credentials, tls_enabled).map_err(|e| 
@@ -122,7 +121,7 @@ pub fn rec_thread(
 fn handle_websocket(shutdown: Arc<AtomicBool>, ws: &mut WebSocket<MaybeTlsStream<TcpStream>>, rx: &Receiver<Vec<u8>>) {
   'outer: loop {
     while let Ok(page) = rx.recv() {
-      if shutdown.load(Ordering::SeqCst) { break 'outer; }
+      if shutdown.load(Ordering::Acquire) { break 'outer; }
       if let Err(e) = ws.send(Message::Binary(page.into())) {
         eprintln!("Websocket send error: {e}");
         return;
@@ -158,18 +157,21 @@ fn websocket_connect_loop(
   let mut last_log = Instant::now();
 
   loop {
-    if shutdown.load(Ordering::SeqCst) { break; }
-    if !connected.load(Ordering::SeqCst) {
+    if shutdown.load(Ordering::Acquire) { break; }
+    if !connected.load(Ordering::Acquire) {
       match connect(request.clone()) {
         Ok((mut ws, _)) => {
-          connected.store(true, Ordering::SeqCst);
-          let connected_inner = connected.clone();
-          let opus_rx_receiver = opus_rx.clone();
-          let shutdown_clone = shutdown.clone();
-          spawn(move || {
-            handle_websocket(shutdown_clone, &mut ws, &opus_rx_receiver);
-            connected_inner.store(false, Ordering::SeqCst);
-          });
+          connected.store(true, Ordering::Release);
+          spawn({
+            let connected = connected.clone();
+            let opus_rx = opus_rx.clone();
+            let shutdown = shutdown.clone();
+            move || {
+            handle_websocket(shutdown, &mut ws, &opus_rx);
+            connected.store(false, Ordering::Release);
+          }
+          }
+          );
         }
         Err(e) => {
           if last_log.elapsed() > LOG_TIME {

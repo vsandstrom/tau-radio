@@ -35,6 +35,7 @@ pub fn find_audio_device(host: &Host, audio_interface: &str) -> anyhow::Result<D
        Make sure your audio hardware is connected and accessible"
     )
   })?;
+
   if let Some(dev) = devices
     .filter_map(|d| d.name().ok().map(|n| (d, n)))
     .find(|(_, name)| name == audio_interface)
@@ -67,7 +68,6 @@ fn create_encoder(filename: &str) -> Encoder {
 fn create_recorder(path: &PathBuf, filename: &str) -> Encoder {
   Encoder::create_file(
     path,
-    // filename.clone().as_str(),
     Comments::create()
       .add(RecommendedTag::Title, filename.to_string())
       .unwrap(),
@@ -92,7 +92,7 @@ pub(crate) fn record_audio(
   let mut encoder = create_recorder(path, &filename);
   let mut buf = Vec::with_capacity(framesize);
   loop {
-    if shutdown.load(Ordering::SeqCst) { break; }
+    if shutdown.load(Ordering::Acquire) { break; }
     if let Ok(sample) = in_rx.recv() {
       buf.push(sample);
     }
@@ -115,7 +115,7 @@ pub(crate) fn encode_audio(
   let mut encoder = create_encoder(&filename);
   let mut buf = Vec::with_capacity(framesize);
   loop {
-    if shutdown.load(Ordering::SeqCst) { break; }
+    if shutdown.load(Ordering::Acquire) { break; }
     if let Ok(sample) = in_rx.recv() {
       buf.push(sample);
     }
@@ -145,7 +145,7 @@ pub(crate) fn encode_audio(
 /// Fans out the audio stream to (optional) multiple consumers - Broadcast style!
 pub(crate) fn audio_capture_loop(shutdown: Arc<AtomicBool>, producer: &mut (impl Consumer<Item = f32> + Send + 'static), consumers: &[Sender<f32>]) {
   loop {
-    if shutdown.load(Ordering::SeqCst) { break; }
+    if shutdown.load(Ordering::Acquire) { break; }
     if let Some(sample) = producer.try_pop() {
       consumers.iter().for_each(|c| {
         if let Err(e) = c.send(sample) {
