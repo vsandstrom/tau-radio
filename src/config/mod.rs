@@ -11,34 +11,34 @@ use crate::{
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
-    pub username: String,
-    pub password: String,
-    pub url: String,
-    pub upstream_port: u16,
-    pub audio_interface: String,
-    pub file: Option<String>,
-    pub tls: bool
+  pub username: String,
+  pub password: String,
+  pub url: String,
+  pub upstream_port: u16,
+  pub audio_interface: String,
+  pub file: Option<String>,
+  pub tls: bool
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum TauConfigError {
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
+  #[error("IO error: {0}")]
+  Io(#[from] std::io::Error),
 
-    #[error("toml parsing error: {0}")]
-    TomlDeserialize(#[from] toml::de::Error),
+  #[error("toml parsing error: {0}")]
+  TomlDeserialize(#[from] toml::de::Error),
 
-    #[error("toml parsing error: {0}")]
-    TomlSerialize(#[from] toml::ser::Error),
+  #[error("toml parsing error: {0}")]
+  TomlSerialize(#[from] toml::ser::Error),
 
-    #[error("invalid IP: {0}")]
-    InvalidUrl(String),
+  #[error("invalid IP: {0}")]
+  InvalidUrl(String),
 
-    #[error("invalid port number: {0}")]
-    InvalidPort(String),
+  #[error("invalid port number: {0}")]
+  InvalidPort(String),
 
-    #[error("user input error: {0}")]
-    Input(String),
+  #[error("user input error: {0}")]
+  Input(String),
 }
 
 impl Config {
@@ -152,16 +152,22 @@ impl Config {
 }
 
 pub struct Credentials {
-  username: String,
-  password: String,
+  username: &'static str,
+  password: &'static str,
 }
 
 impl Credentials {
+  /// Leaks a boxed str to borrow for &'static
   pub fn new(username: String, password: String) -> Self {
-    Self { username, password }
+    Self{
+      username: Box::leak(username.into_boxed_str()),
+      password: Box::leak(password.into_boxed_str())
+    }
+    
+    // Self { username: &username, password: &password }
   }
-  pub fn get_username(&self) -> String { self.username.clone() }
-  pub fn get_password(&self) -> String { self.password.clone() }
+  pub fn get_username(&self) -> &'static str { self.username }
+  pub fn get_password(&self) -> &'static str { self.password }
 }
 
 use inline_colorization::{
